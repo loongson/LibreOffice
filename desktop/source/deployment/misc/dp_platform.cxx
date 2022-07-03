@@ -127,6 +127,8 @@ namespace
             ret = checkOSandCPU(u"Linux", u"ALPHA");
         else if (token == u"linux_aarch64")
             ret = checkOSandCPU(u"Linux", u"AARCH64");
+        else if (token == u"linux_loongarch64")
+            ret = checkOSandCPU(u"Linux", u"LoongArch64");
         else if (token == u"freebsd_x86")
             ret = checkOSandCPU(u"FreeBSD", u"x86");
         else if (token == u"freebsd_x86_64")
