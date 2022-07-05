@@ -35,6 +35,7 @@
 #include <sfx2/bindings.hxx>
 #include <sfx2/viewfrm.hxx>
 #include <vcl/unohelp2.hxx>
+#include <vcl/unohelp3.hxx>
 #include <vcl/weld.hxx>
 #include <sfx2/request.hxx>
 #include <svl/eitem.hxx>
@@ -78,6 +79,8 @@
 #include <editeng/acorrcfg.hxx>
 #include <swabstdlg.hxx>
 #include <sfx2/sfxdlg.hxx>
+#include <com/sun/star/text/XTextContent.hpp>
+#include <com/sun/star/datatransfer/clipboard/XFlushableClipboard.hpp>
 #include <com/sun/star/container/XNameContainer.hpp>
 #include <com/sun/star/beans/XPropertySet.hpp>
 #include <com/sun/star/style/XStyleFamiliesSupplier.hpp>
@@ -103,6 +106,9 @@
 #include <bookmark.hxx>
 #include <linguistic/misc.hxx>
 #include <authfld.hxx>
+#include <unoparagraph.hxx>
+#include <ndtxt.hxx>
+#include <shellio.hxx>
 
 using namespace ::com::sun::star;
 using namespace com::sun::star::beans;
@@ -1501,6 +1507,81 @@ void SwTextShell::Execute(SfxRequest &rReq)
             aReq.AppendItem( SfxBoolItem( SID_FM_CTL_PROPERTIES, true ) );
             rWrtSh.GetView().GetFormShell()->Execute( aReq );
         }
+    }
+    break;
+    case SID_FM_TRANSLATE:
+    {
+        auto const& pNodes = rWrtSh.GetNodes();
+        WriterRef xWrt;
+        GetHTMLWriter( OUString("NoLineLimit,SkipHeaderFooter"), OUString(), xWrt );
+        SwNode* pNode = nullptr;
+        OString aResult;
+        // mockup func
+        auto replacePara = [&](OString& res, SwNodeOffset nodeIndex) {
+            rtl::Reference<vcl::unohelper::HtmlTransferable> pHtmlTransferable = new vcl::unohelper::HtmlTransferable( res );
+                if ( pHtmlTransferable.is() )
+                {
+                    TransferableDataHelper aDataHelper( pHtmlTransferable );
+                    if( aDataHelper.GetXTransferable().is() && SwTransferable::IsPasteSpecial( rWrtSh, aDataHelper ) )
+                    {
+                        std::shared_ptr<SwPaM> cursor = Writer::NewUnoCursor(*rWrtSh.GetDoc(), nodeIndex, nodeIndex);
+                        rWrtSh.SetSelection(*cursor);
+                        SwTransferable::Paste(rWrtSh, aDataHelper);
+                        rWrtSh.KillSelection(nullptr, false);
+                    }
+                }
+        };
+        for (SwNodeOffset n(0); ; ++n)
+        {
+            if (n >= rWrtSh.GetNodes().Count())
+                break;
+            pNode = pNodes[n];
+            if (pNode)
+            {
+                if (pNode->IsTextNode())
+                {
+                    if (pNode->GetTextNode()->GetText() == "")
+                        continue;
+                    auto cursor = Writer::NewUnoCursor(*rWrtSh.GetDoc(), pNode->GetIndex(), pNode->GetIndex());
+                    SvMemoryStream aMemoryStream;
+                    SwWriter aWriter(aMemoryStream, *cursor);
+                    ErrCode nError = aWriter.Write(xWrt);
+                    //aResult = OString(static_cast<const char*>(aMemoryStream.GetData()), aMemoryStream.GetSize());
+                    // SAL_DEBUG(OString(static_cast<const char*>(aMemoryStream.GetData()), aMemoryStream.GetSize()));
+                    aResult = OString(
+                        "<!DOCTYPE html>\
+                        <html>\
+                        <head>\
+                                <meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\"/>\
+                                <title></title>\
+                                <meta name=\"generator\" content=\"Collabora OfficeDev 22.05.3.1 (Linux)\"/>\
+                                <meta name=\"created\" content=\"2022-07-04T14:22:18.224344524\"/>\
+                                <meta name=\"changed\" content=\"00:00:00\"/>\
+                                <style type=\"text/css\">\
+                                        @page { size: 8.27in 11.69in; margin: 0.79in }\
+                                        p { line-height: 115%; margin-bottom: 0.1in; background: transparent }\
+                                        a:link { color: #000080; so-language: zxx; text-decoration: underline }\
+                                        a:visited { color: #800000; so-language: zxx; text-decoration: underline }\
+                                </style>\
+                        </head>\
+                        <body lang=\"en-US\" link=\"#000080\" vlink=\"#800000\" dir=\"ltr\"><span style=\"line-height: 100%; margin-bottom: 0in\">\
+                        test pasted content and blabla blabala <b>more blablabla</b></span>\
+                        </body>\
+                        </html>"\
+                    );
+                    SAL_DEBUG(aResult);
+                    replacePara(aResult, pNode->GetIndex());
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+
+
+        // test pasting the last data
+
     }
     break;
     case SID_SPELLCHECK_IGNORE:
