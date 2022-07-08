@@ -47,6 +47,13 @@ bridge_asm_objects := callvirtualfunction vtableslotcall
 
 endif
 
+else ifeq ($(CPUNAME),LOONGARCH64)
+
+ifneq ($(filter LINUX,$(OS)),)
+bridges_SELECTED_BRIDGE := gcc3_linux_loongarch64
+bridge_exception_objects := abi cpp2uno uno2cpp
+endif
+
 else ifeq ($(CPUNAME),AXP)
 
 ifneq ($(filter DRAGONFLY FREEBSD LINUX NETBSD OPENBSD,$(OS)),)
