@@ -215,16 +215,16 @@ namespace
     asm volatile (
         // Fill the general purpose registers
         "ld.d $r4, %[gpr], 0\n\t"
-        "ld.d $r5, %[gpr], 8 \n\t"
+        "ld.d $r5, %[gpr], 8\n\t"
         "ld.d $r6, %[gpr], 16\n\t"
         "ld.d $r7, %[gpr], 24\n\t"
         "ld.d $r8, %[gpr], 32\n\t"
         "ld.d $r9, %[gpr], 40\n\t"
         "ld.d $r10, %[gpr], 48\n\t"
         "ld.d $r11, %[gpr], 56\n\t"
-        // Fill the floating pointer registers
-	"fld.d $f0, %[fpr], 0\n\t"
-	"fld.d $f1, %[fpr], 8\n\t"
+        // Fill the floating-point registers
+        "fld.d $f0, %[fpr], 0\n\t"
+        "fld.d $f1, %[fpr], 8\n\t"
         "fld.d $f2, %[fpr], 16\n\t"
         "fld.d $f3, %[fpr], 24\n\t"
         "fld.d $f4, %[fpr], 32\n\t"
@@ -234,10 +234,10 @@ namespace
         // Perform the call
         "jirl $ra, %[mfunc], 0\n\t"
         // Fill the return values
-        "move %[gret1], $r4 \n\t"
-        "move %[gret2], $r5 \n\t"
-        "fmov.d %[fret1], $f0 \n\t"
-        "fmov.d %[fret2], $f1 \n\t"
+        "move %[gret1], $r4\n\t"
+        "move %[gret2], $r5\n\t"
+        "fmov.d %[fret1], $f0\n\t"
+        "fmov.d %[fret2], $f1\n\t"
         :[gret1]"=r"(gret[0]), [gret2]"=r"(gret[1]),
          [fret1]"=f"(fret[0]), [fret2]"=f"(fret[1])
         :[gpr]"r"(pGPR), [fpr]"r"(pFPR), [mfunc]"r"(mfunc),
@@ -301,8 +301,8 @@ namespace
     double pFPR[MAX_FP_REGS];
     for (int j=0; j < MAX_GP_REGS; j++)
     {
-	    pGPR[j] = 0;
-	    pFPR[j] = 0;
+        pGPR[j] = 0;
+        pFPR[j] = 0;
     }
     sal_uInt32 nREG = 0;
 
@@ -359,7 +359,7 @@ namespace
           case typelib_TypeClass_LONG:
           case typelib_TypeClass_UNSIGNED_LONG:
             INSERT_INT64( pCppArgs[nPos], nREG, pGPR, pStack );
-	    break;
+            break;
           case typelib_TypeClass_ENUM:
             INSERT_INT32( pCppArgs[nPos], nREG, pGPR, pStack );
             break;

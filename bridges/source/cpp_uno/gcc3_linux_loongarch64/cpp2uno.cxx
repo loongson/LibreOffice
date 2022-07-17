@@ -378,19 +378,24 @@ unsigned char * generateCodeSnippet(
     // lu12i.w $t7, <low vtableOffset>
     reinterpret_cast<unsigned int *>(code)[2] = 0x14000013
         | (((vtableOffset >> 12) & 0x000fffff) << 5);
-    // ori $t7, $t7, <high vtableOffset> 
+    // ori $t7, $t7, <high vtableOffset>
     reinterpret_cast<unsigned int *>(code)[3] = 0x03800273
         | ((vtableOffset & 0x00000fff) << 10);
+
     // load vtableSlotCall to $t8
+    // lu12i.w $t8, <high vtableSlotCall>
     reinterpret_cast<unsigned int *>(code)[4] = 0x14000014
-    	| (((((unsigned long)vtableSlotCall) >> 12) & 0x000fffff) << 5);
+        | (((((unsigned long)vtableSlotCall) >> 12) & 0x000fffff) << 5);
+    // ori $t8, $t8, <low vtableSlotCall>
     reinterpret_cast<unsigned int *>(code)[5] = 0x03800294
-	| ((((unsigned long)vtableSlotCall) & 0x00000fff) << 10);
+        | ((((unsigned long)vtableSlotCall) & 0x00000fff) << 10);
+    // lu32i.d $t8, <higher vtableSlotCall>
     reinterpret_cast<unsigned int *>(code)[6] = 0x16000014
-	| (((((unsigned long)vtableSlotCall) >> 32) & 0x000fffff) << 5);
+        | (((((unsigned long)vtableSlotCall) >> 32) & 0x000fffff) << 5);
+    // lu52i.d $t8, $t8, <top vtableSlotCall>
     reinterpret_cast<unsigned int *>(code)[7] = 0x03000294
-	| (((((unsigned long)vtableSlotCall) >> 52) & 0x00000fff) << 10);
-    // jump $t8
+        | (((((unsigned long)vtableSlotCall) >> 52) & 0x00000fff) << 10);
+    // jr $t8
     reinterpret_cast<unsigned int *>(code)[8] = 0x4c000280;
     return code + codeSnippetSize;
 }
@@ -463,12 +468,13 @@ unsigned char * bridges::cpp_uno::shared::VtableFactory::addLocalFunctions(
 }
 
 void bridges::cpp_uno::shared::VtableFactory::flushCode(
-    unsigned char const * begin, unsigned char const * end)
+    unsigned char const *, unsigned char const *)
 {
-   static void (*clear_cache)(unsigned char const *, unsigned char const *)
-       = (void (*)(unsigned char const *, unsigned char const *)) dlsym(
-           RTLD_DEFAULT, "__clear_cache");
-   (*clear_cache)(begin, end);
+    // Consistency between Icache and Dcache is maintained by hardware on
+    // LoongArch systems, and data barriers are certainly involved during
+    // thread migration. Hence, ibar on the current core should do the trick
+    // of ensuring the newly written code is visible before being invoked.
+    asm volatile ("ibar 0" : : : "memory");
 }
 
 /* vim:set shiftwidth=4 softtabstop=4 expandtab: */
