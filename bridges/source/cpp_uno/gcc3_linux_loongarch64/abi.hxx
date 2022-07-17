@@ -28,10 +28,11 @@
 #include <typelib/typedescription.h>
 #include <uno/any2.h>
 #include <uno/mapping.h>
-#define MAX_GP_REGS	(8)
-#define MAX_FP_REGS	(8)
+#define MAX_GP_REGS (8)
+#define MAX_FP_REGS (8)
 
-namespace abi_loongarch64 {
+namespace abi_loongarch64
+{
 
 // Following declarations from libstdc++-v3/libsupc++/unwind-cxx.h and
 // lib/gcc/*-*-*/*/include/unwind.h:
@@ -39,52 +40,55 @@ namespace abi_loongarch64 {
 struct _Unwind_Exception
 {
     unsigned exception_class __attribute__((__mode__(__DI__)));
-    void * exception_cleanup;
+    void* exception_cleanup;
     unsigned private_1 __attribute__((__mode__(__word__)));
     unsigned private_2 __attribute__((__mode__(__word__)));
 } __attribute__((__aligned__));
 
 struct __cxa_exception
 {
-    std::type_info *exceptionType;
-    void (*exceptionDestructor)(void *);
+    std::type_info* exceptionType;
+    void (*exceptionDestructor)(void*);
 
     std::unexpected_handler unexpectedHandler;
     std::terminate_handler terminateHandler;
 
-    __cxa_exception *nextException;
+    __cxa_exception* nextException;
 
     int handlerCount;
 
     int handlerSwitchValue;
-    const unsigned char *actionRecord;
-    const unsigned char *languageSpecificData;
-    void *catchTemp;
-    void *adjustedPtr;
+    const unsigned char* actionRecord;
+    const unsigned char* languageSpecificData;
+    void* catchTemp;
+    void* adjustedPtr;
 
     _Unwind_Exception unwindHeader;
 };
 
 struct __cxa_eh_globals
 {
-    __cxa_exception *caughtExceptions;
+    __cxa_exception* caughtExceptions;
     unsigned int uncaughtExceptions;
 };
 
-extern "C" __cxa_eh_globals *__cxa_get_globals () throw();
+extern "C" __cxa_eh_globals* __cxa_get_globals() throw();
 
-void mapException(
-    __cxa_exception * exception, uno_Any * any, uno_Mapping * mapping);
+void mapException(__cxa_exception* exception, uno_Any* any, uno_Mapping* mapping);
 
-void raiseException(uno_Any * any, uno_Mapping * mapping);
+void raiseException(uno_Any* any, uno_Mapping* mapping);
 
-enum ReturnKind {
-    RETURN_KIND_REG, RETURN_KIND_HFA_FLOAT, RETURN_KIND_HFA_DOUBLE,
-    RETURN_KIND_INDIRECT };
+enum ReturnKind
+{
+    RETURN_KIND_REG,
+    RETURN_KIND_HFA_FLOAT,
+    RETURN_KIND_HFA_DOUBLE,
+    RETURN_KIND_INDIRECT
+};
 
-ReturnKind getReturnKind(typelib_TypeDescription const * type);
+ReturnKind getReturnKind(typelib_TypeDescription const* type);
 
-bool return_in_hidden_param( typelib_TypeDescriptionReference *pTypeRef );
+bool return_in_hidden_param(typelib_TypeDescriptionReference* pTypeRef);
 }
 
 #endif
