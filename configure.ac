@@ -5146,6 +5146,11 @@ linux-gnu*|linux-musl*)
         EPM_FLAGS="-a hppa"
         PLATFORMID=linux_hppa
         ;;
+    loongarch64)
+        CPUNAME=LOONGARCH64
+        RTL_ARCH=LOONGARCH64
+        PLATFORMID=linux_loongarch64
+        ;;
     i*86)
         CPUNAME=INTEL
         RTL_ARCH=x86
