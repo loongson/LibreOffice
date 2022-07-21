@@ -24,6 +24,7 @@
 #include <sal/log.hxx>
 #include <unotools/localedatawrapper.hxx>
 #include <unotools/resmgr.hxx>
+#include <utility>
 #include <vcl/builder.hxx>
 #include <vcl/dialoghelper.hxx>
 #include <vcl/menu.hxx>
@@ -442,19 +443,19 @@ namespace weld
 }
 
 VclBuilder::VclBuilder(vcl::Window* pParent, const OUString& sUIDir, const OUString& sUIFile,
-                       const OString& sID, const css::uno::Reference<css::frame::XFrame>& rFrame,
+                       OString sID, css::uno::Reference<css::frame::XFrame> xFrame,
                        bool bLegacy, const NotebookBarAddonsItem* pNotebookBarAddonsItem)
     : m_pNotebookBarAddonsItem(pNotebookBarAddonsItem
                                    ? new NotebookBarAddonsItem(*pNotebookBarAddonsItem)
                                    : new NotebookBarAddonsItem{})
-    , m_sID(sID)
+    , m_sID(std::move(sID))
     , m_sHelpRoot(OUStringToOString(sUIFile, RTL_TEXTENCODING_UTF8))
     , m_pStringReplace(Translate::GetReadStringHook())
     , m_pParent(pParent)
     , m_bToplevelParentFound(false)
     , m_bLegacy(bLegacy)
     , m_pParserState(new ParserState)
-    , m_xFrame(rFrame)
+    , m_xFrame(std::move(xFrame))
 {
     m_bToplevelHasDeferredInit = pParent &&
         ((pParent->IsSystemWindow() && static_cast<SystemWindow*>(pParent)->isDeferredInit()) ||
@@ -1192,7 +1193,7 @@ namespace
         Image aImage(vcl::CommandInfoProvider::GetImageForCommand(aCommand, rFrame));
         pButton->SetModeImage(aImage);
 
-        pButton->SetCommandHandler(aCommand);
+        pButton->SetCommandHandler(aCommand, rFrame);
     }
 
     VclPtr<Button> extractStockAndBuildPushButton(vcl::Window *pParent, VclBuilder::stringmap &rMap, bool bToggle)
@@ -2155,6 +2156,8 @@ VclPtr<vcl::Window> VclBuilder::makeObject(vcl::Window *pParent, const OString &
                     m_pParserState->m_aButtonMenuMaps.emplace_back(id, sMenu);
                 setupFromActionName(static_cast<Button*>(xWindow.get()), rMap, m_xFrame);
             }
+            else if (xWindow->GetType() == WindowType::TOOLBOX)
+                static_cast<ToolBox*>(xWindow.get())->TrackImageOrientation(m_xFrame);
         }
     }
 
@@ -4394,8 +4397,8 @@ VclBuilder::ParserState::ParserState()
     , m_nLastMenuItemId(0)
 {}
 
-VclBuilder::MenuAndId::MenuAndId(const OString &rId, Menu *pMenu)
-    : m_sID(rId)
+VclBuilder::MenuAndId::MenuAndId(OString aId, Menu *pMenu)
+    : m_sID(std::move(aId))
     , m_pMenu(pMenu)
 {}
 

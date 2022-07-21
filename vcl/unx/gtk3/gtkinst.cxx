@@ -27,6 +27,7 @@
 #include <unx/gtk/gtksalmenu.hxx>
 #include <headless/svpvd.hxx>
 #include <headless/svpbmp.hxx>
+#include <utility>
 #include <vcl/builder.hxx>
 #include <vcl/inputtypes.hxx>
 #include <vcl/specialchars.hxx>
@@ -85,7 +86,7 @@
 #include <vcl/i18nhelp.hxx>
 #include <vcl/quickselectionengine.hxx>
 #include <vcl/mnemonic.hxx>
-#include <vcl/pngwrite.hxx>
+#include <vcl/filter/PngImageWriter.hxx>
 #include <vcl/stdtext.hxx>
 #include <vcl/syswin.hxx>
 #include <vcl/virdev.hxx>
@@ -4813,9 +4814,10 @@ namespace
         // We "know" that this gets passed to zlib's deflateInit2_(). 1 means best speed.
         css::uno::Sequence<css::beans::PropertyValue> aFilterData{ comphelper::makePropertyValue(
             "Compression", sal_Int32(1)) };
-
-        vcl::PNGWriter aWriter(aImage.GetBitmapEx(), &aFilterData);
-        aWriter.Write(aMemStm);
+        auto aBitmapEx = aImage.GetBitmapEx();
+        vcl::PngImageWriter aWriter(aMemStm);
+        aWriter.setParameters(aFilterData);
+        aWriter.write(aBitmapEx);
 
         return load_icon_from_stream(aMemStm);
     }
@@ -14792,7 +14794,7 @@ public:
         assert(gtk_tree_view_get_model(m_pTreeView) && "don't select when frozen, select after thaw. Note selection doesn't survive a freeze");
         disable_notify_events();
         GtkTreePath* path = gtk_tree_path_new_from_indices(pos, -1);
-        gtk_tree_view_scroll_to_cell(m_pTreeView, path, nullptr, false, 0, 0);
+        gtk_tree_view_scroll_to_cell(m_pTreeView, path, nullptr, true, 0, 0);
         gtk_tree_path_free(path);
         enable_notify_events();
     }
@@ -15469,7 +15471,7 @@ public:
         disable_notify_events();
         const GtkInstanceTreeIter& rGtkIter = static_cast<const GtkInstanceTreeIter&>(rIter);
         GtkTreePath* path = gtk_tree_model_get_path(m_pTreeModel, const_cast<GtkTreeIter*>(&rGtkIter.iter));
-        gtk_tree_view_scroll_to_cell(m_pTreeView, path, nullptr, false, 0, 0);
+        gtk_tree_view_scroll_to_cell(m_pTreeView, path, nullptr, true, 0, 0);
         gtk_tree_path_free(path);
         enable_notify_events();
     }
@@ -17622,10 +17624,10 @@ private:
 
     DECL_LINK(SettingsChangedHdl, VclWindowEvent&, void);
 public:
-    GtkInstanceDrawingArea(GtkDrawingArea* pDrawingArea, GtkInstanceBuilder* pBuilder, const a11yref& rA11y, bool bTakeOwnership)
+    GtkInstanceDrawingArea(GtkDrawingArea* pDrawingArea, GtkInstanceBuilder* pBuilder, a11yref xA11y, bool bTakeOwnership)
         : GtkInstanceWidget(GTK_WIDGET(pDrawingArea), pBuilder, bTakeOwnership)
         , m_pDrawingArea(pDrawingArea)
-        , m_xAccessible(rA11y)
+        , m_xAccessible(std::move(xA11y))
 #if !GTK_CHECK_VERSION(4, 0, 0)
         , m_pAccessible(nullptr)
 #endif

@@ -18,6 +18,7 @@
  */
 
 #include <sal/config.h>
+#include <utility>
 #include <vcl/uitest/logger.hxx>
 #include <sal/log.hxx>
 
@@ -110,24 +111,24 @@ ImplToolItem::ImplToolItem()
     init(ToolBoxItemId(0), ToolBoxItemBits::NONE, true);
 }
 
-ImplToolItem::ImplToolItem( ToolBoxItemId nItemId, const Image& rImage,
+ImplToolItem::ImplToolItem( ToolBoxItemId nItemId, Image aImage,
                             ToolBoxItemBits nItemBits ) :
-    maImage( rImage )
+    maImage(std::move( aImage ))
 {
     init(nItemId, nItemBits, false);
 }
 
-ImplToolItem::ImplToolItem( ToolBoxItemId nItemId, const OUString& rText,
+ImplToolItem::ImplToolItem( ToolBoxItemId nItemId, OUString aText,
                             ToolBoxItemBits nItemBits ) :
-    maText( rText )
+    maText(std::move( aText ))
 {
     init(nItemId, nItemBits, false);
 }
 
-ImplToolItem::ImplToolItem( ToolBoxItemId nItemId, const Image& rImage,
-                            const OUString& rText, ToolBoxItemBits nItemBits ) :
-    maImage( rImage ),
-    maText( rText )
+ImplToolItem::ImplToolItem( ToolBoxItemId nItemId, Image aImage,
+                            OUString aText, ToolBoxItemBits nItemBits ) :
+    maImage(std::move( aImage )),
+    maText(std::move( aText ))
 {
     init(nItemId, nItemBits, false);
 }
@@ -942,6 +943,15 @@ void* ToolBox::GetItemData( ToolBoxItemId nItemId ) const
         return nullptr;
 }
 
+static Image ImplMirrorImage( const Image& rImage )
+{
+    BitmapEx    aMirrBitmapEx( rImage.GetBitmapEx() );
+
+    aMirrBitmapEx.Mirror( BmpMirrorFlags::Horizontal );
+
+    return Image( aMirrBitmapEx );
+}
+
 void ToolBox::SetItemImage( ToolBoxItemId nItemId, const Image& rImage )
 {
     ImplToolItems::size_type nPos = GetItemPos( nItemId );
@@ -952,7 +962,10 @@ void ToolBox::SetItemImage( ToolBoxItemId nItemId, const Image& rImage )
     ImplToolItem* pItem = &mpData->m_aItems[nPos];
     Size aOldSize = pItem->maImage.GetSizePixel();
 
-    pItem->maImage = rImage;
+    if (pItem->mbMirrorMode)
+        pItem->maImage = ImplMirrorImage(rImage);
+    else
+        pItem->maImage = rImage;
 
     // only once all is calculated, do extra work
     if (!mbCalc)
@@ -1000,15 +1013,6 @@ void ToolBox::SetItemImageAngle( ToolBoxItemId nItemId, Degree10 nAngle10 )
         else
             ImplUpdateItem(nPos);
     }
-}
-
-static Image ImplMirrorImage( const Image& rImage )
-{
-    BitmapEx    aMirrBitmapEx( rImage.GetBitmapEx() );
-
-    aMirrBitmapEx.Mirror( BmpMirrorFlags::Horizontal );
-
-    return Image( aMirrBitmapEx );
 }
 
 void ToolBox::SetItemImageMirrorMode( ToolBoxItemId nItemId, bool bMirror )

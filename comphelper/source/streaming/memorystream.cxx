@@ -18,6 +18,7 @@
  */
 
 #include <algorithm>
+#include <cassert>
 #include <memory>
 
 #include <boost/core/noinit_adaptor.hpp>
@@ -93,7 +94,7 @@ public:
     virtual sal_Int64 SAL_CALL getSomething( const css::uno::Sequence< sal_Int8 >& aIdentifier ) override;
 
     // comphelper::ByteWriter
-    virtual sal_Int32 writeSomeBytes(const sal_Int8* aData, sal_Int32 nBytesToWrite) override;
+    virtual void writeBytes(const sal_Int8* aData, sal_Int32 nBytesToWrite) override;
 
 private:
     std::vector< sal_Int8, boost::noinit_adaptor<std::allocator<sal_Int8>> > maData;
@@ -205,7 +206,12 @@ sal_Int64 SAL_CALL UNOMemoryStream::getLength()
 // XOutputStream
 void SAL_CALL UNOMemoryStream::writeBytes( const Sequence< sal_Int8 >& aData )
 {
-    const sal_Int32 nBytesToWrite( aData.getLength() );
+    writeBytes(aData.getConstArray(), aData.getLength());
+}
+
+void UNOMemoryStream::writeBytes( const sal_Int8* pInData, sal_Int32 nBytesToWrite )
+{
+    assert(nBytesToWrite >= 0);
     if( !nBytesToWrite )
         return;
 
@@ -216,38 +222,14 @@ void SAL_CALL UNOMemoryStream::writeBytes( const Sequence< sal_Int8 >& aData )
         throw IOException("this implementation does not support more than 2GB!", static_cast<OWeakObject*>(this) );
     }
 
-    if( static_cast< sal_Int32 >( nNewSize ) > static_cast< sal_Int32 >( maData.size() ) )
+    if( o3tl::make_unsigned( nNewSize ) > maData.size() )
         maData.resize( nNewSize );
 
     sal_Int8* pData = &(*maData.begin());
     sal_Int8* pCursor = &(pData[mnCursor]);
-    memcpy(pCursor, aData.getConstArray(), nBytesToWrite);
-
-    mnCursor += nBytesToWrite;
-}
-
-sal_Int32 UNOMemoryStream::writeSomeBytes( const sal_Int8* pInData, sal_Int32 nBytesToWrite )
-{
-    if( !nBytesToWrite )
-        return 0;
-
-    sal_Int64 nNewSize = static_cast<sal_Int64>(mnCursor) + nBytesToWrite;
-    if( nNewSize > SAL_MAX_INT32 )
-    {
-        OSL_ASSERT(false);
-        throw IOException("this implementation does not support more than 2GB!", static_cast<OWeakObject*>(this) );
-    }
-
-    if( static_cast< sal_Int32 >( nNewSize ) > static_cast< sal_Int32 >( maData.size() ) )
-        maData.resize( nNewSize );
-
-    sal_Int8* pData = &(*maData.begin());
-    sal_Int8* pCursor = &(pData[mnCursor]);
-    // cast to avoid -Werror=class-memaccess
     memcpy(pCursor, pInData, nBytesToWrite);
 
     mnCursor += nBytesToWrite;
-    return nBytesToWrite;
 }
 
 void SAL_CALL UNOMemoryStream::flush()

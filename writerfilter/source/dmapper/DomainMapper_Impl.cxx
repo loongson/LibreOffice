@@ -597,8 +597,8 @@ void DomainMapper_Impl::RemoveDummyParaForTableInSection()
 }
 void DomainMapper_Impl::AddDummyParaForTableInSection()
 {
-    // Shapes can't have sections.
-    if (IsInShape())
+    // Shapes and textboxes can't have sections.
+    if (IsInShape() || m_bIsInTextBox)
         return;
 
     if (!m_aTextAppendStack.empty())
@@ -2734,10 +2734,10 @@ void DomainMapper_Impl::appendTextPortion( const OUString& rString, const Proper
             }
         }
 
-        // reset moveFrom data of non-terminating runs of the paragraph
-        if ( m_pParaMarkerRedlineMoveFrom )
+        // reset moveFrom/moveTo data of non-terminating runs of the paragraph
+        if ( m_pParaMarkerRedlineMove )
         {
-            m_pParaMarkerRedlineMoveFrom.clear();
+            m_pParaMarkerRedlineMove.clear();
         }
         CheckRedline( xTextRange );
         m_bParaChanged = true;
@@ -3297,13 +3297,14 @@ void DomainMapper_Impl::CreateRedline(uno::Reference<text::XTextRange> const& xR
             break;
         case XML_moveTo:
             bRedlineMoved = true;
+            m_pParaMarkerRedlineMove = pRedline.get();
             [[fallthrough]];
         case XML_ins:
             sType = getPropertyName( PROP_INSERT );
             break;
         case XML_moveFrom:
             bRedlineMoved = true;
-            m_pParaMarkerRedlineMoveFrom = pRedline.get();
+            m_pParaMarkerRedlineMove = pRedline.get();
             [[fallthrough]];
         case XML_del:
             sType = getPropertyName( PROP_DELETE );
@@ -3372,14 +3373,14 @@ void DomainMapper_Impl::CheckParaMarkerRedline( uno::Reference< text::XTextRange
             m_currentRedline.clear();
         }
     }
-    else if ( m_pParaMarkerRedlineMoveFrom )
+    else if ( m_pParaMarkerRedlineMove )
     {
-        // terminating moveFrom redline removes also the paragraph mark
-        CreateRedline( xRange, m_pParaMarkerRedlineMoveFrom );
+        // terminating moveFrom/moveTo redline removes also the paragraph mark
+        CreateRedline( xRange, m_pParaMarkerRedlineMove );
     }
-    if ( m_pParaMarkerRedlineMoveFrom )
+    if ( m_pParaMarkerRedlineMove )
     {
-        m_pParaMarkerRedlineMoveFrom.clear();
+        m_pParaMarkerRedlineMove.clear();
     }
 }
 
@@ -3714,9 +3715,13 @@ void DomainMapper_Impl::PushShapeContext( const uno::Reference< drawing::XShape 
             {
                 try
                 {
-                    uno::Reference<text::XTextRange> xFrame(xShapes->getByIndex(i), uno::UNO_QUERY_THROW);
-                    uno::Reference<beans::XPropertySet> xSyncedPropertySet(xFrame, uno::UNO_QUERY_THROW);
-                    comphelper::SequenceAsHashMap aGrabBag( xSyncedPropertySet->getPropertyValue("CharInteropGrabBag") );
+                    uno::Reference<text::XTextRange> xFrame(xShapes->getByIndex(i), uno::UNO_QUERY);
+                    uno::Reference<beans::XPropertySet> xFramePropertySet;
+                    if (xFrame)
+                        xFramePropertySet.set(xFrame, uno::UNO_QUERY_THROW);
+                    uno::Reference<beans::XPropertySet> xShapePropertySet(xShapes->getByIndex(i), uno::UNO_QUERY_THROW);
+
+                    comphelper::SequenceAsHashMap aGrabBag( xShapePropertySet->getPropertyValue("CharInteropGrabBag") );
 
                     // only VML import has checked for style. Don't apply default parastyle properties to other imported shapes
                     // - except for fontsize - to maintain compatibility with previous versions of LibreOffice.
@@ -3744,7 +3749,7 @@ void DomainMapper_Impl::PushShapeContext( const uno::Reference< drawing::XShape 
                             PROP_CHAR_COLOR,
                             PROP_PARA_ADJUST
                         };
-                        const uno::Reference<beans::XPropertyState> xSyncedPropertyState(xSyncedPropertySet, uno::UNO_QUERY_THROW);
+                        const uno::Reference<beans::XPropertyState> xShapePropertyState(xShapePropertySet, uno::UNO_QUERY_THROW);
                         for ( const auto& eId : eIds )
                         {
                             try
@@ -3753,11 +3758,16 @@ void DomainMapper_Impl::PushShapeContext( const uno::Reference< drawing::XShape 
                                     continue;
 
                                 const OUString sPropName = getPropertyName(eId);
-                                if ( beans::PropertyState_DEFAULT_VALUE == xSyncedPropertyState->getPropertyState(sPropName) )
+                                if ( beans::PropertyState_DEFAULT_VALUE == xShapePropertyState->getPropertyState(sPropName) )
                                 {
                                     const uno::Any aProp = GetPropertyFromStyleSheet(eId, pEntry, /*bDocDefaults=*/true, /*bPara=*/true);
-                                    if ( aProp.hasValue() )
-                                        xSyncedPropertySet->setPropertyValue( sPropName, aProp );
+                                    if (aProp.hasValue())
+                                    {
+                                        if (xFrame)
+                                            xFramePropertySet->setPropertyValue(sPropName, aProp);
+                                        else
+                                            xShapePropertySet->setPropertyValue(sPropName, aProp);
+                                    }
                                 }
                             }
                             catch (const uno::Exception&)

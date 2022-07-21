@@ -62,7 +62,7 @@
 
 #include <cppunit/TestAssert.h>
 #include <vcl/BitmapTools.hxx>
-#include <vcl/pngwrite.hxx>
+#include <vcl/filter/PngImageWriter.hxx>
 #include <vcl/filter/PDFiumLibrary.hxx>
 
 #if USE_TLS_NSS
@@ -698,7 +698,7 @@ void DesktopLOKTest::testSaveAsJsonOptions()
     aMemory.WriteStream(aFile);
     std::shared_ptr<vcl::pdf::PDFium> pPDFium = vcl::pdf::PDFiumLibrary::get();
     std::unique_ptr<vcl::pdf::PDFiumDocument> pPdfDocument
-        = pPDFium->openDocument(aMemory.GetData(), aMemory.GetSize());
+        = pPDFium->openDocument(aMemory.GetData(), aMemory.GetSize(), OString());
     CPPUNIT_ASSERT(pPdfDocument);
     // Without the accompanying fix in place, this test would have failed with:
     // - Expected: 2
@@ -3377,8 +3377,8 @@ void DesktopLOKTest::testRenderSearchResult_WriterNode()
     if (bDumpBitmap)
     {
         SvFileStream aStream("~/SearchResultBitmap.png", StreamMode::WRITE | StreamMode::TRUNC);
-        vcl::PNGWriter aPNGWriter(aBitmap);
-        aPNGWriter.Write(aStream);
+        vcl::PngImageWriter aPNGWriter(aStream);
+        aPNGWriter.write(aBitmap);
     }
     CPPUNIT_ASSERT_EQUAL(tools::Long(642), aBitmap.GetSizePixel().Width());
     CPPUNIT_ASSERT_EQUAL(tools::Long(561), aBitmap.GetSizePixel().Height());
@@ -3422,8 +3422,8 @@ void DesktopLOKTest::testRenderSearchResult_CommonNode()
     if (bDumpBitmap)
     {
         SvFileStream aStream("~/SearchResultBitmap.png", StreamMode::WRITE | StreamMode::TRUNC);
-        vcl::PNGWriter aPNGWriter(aBitmap);
-        aPNGWriter.Write(aStream);
+        vcl::PngImageWriter aPNGWriter(aStream);
+        aPNGWriter.write(aBitmap);
     }
     CPPUNIT_ASSERT_EQUAL(tools::Long(192), aBitmap.GetSizePixel().Width());
     CPPUNIT_ASSERT_EQUAL(tools::Long(96), aBitmap.GetSizePixel().Height());

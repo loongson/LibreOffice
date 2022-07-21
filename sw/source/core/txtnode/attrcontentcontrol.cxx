@@ -25,10 +25,12 @@
 #include <comphelper/propertyvalue.hxx>
 #include <comphelper/sequenceashashmap.hxx>
 #include <svl/numformat.hxx>
+#include <vcl/keycod.hxx>
 
 #include <ndtxt.hxx>
 #include <textcontentcontrol.hxx>
 #include <doc.hxx>
+#include <unocontentcontrol.hxx>
 
 using namespace com::sun::star;
 
@@ -174,6 +176,11 @@ SwContentControl::SwContentControl(SwFormatContentControl* pFormat)
 
 SwContentControl::~SwContentControl() {}
 
+void SwContentControl::SetXContentControl(const rtl::Reference<SwXContentControl>& xContentCnotrol)
+{
+    m_wXContentControl = xContentCnotrol.get();
+}
+
 SwTextContentControl* SwContentControl::GetTextAttr() const
 {
     return m_pFormat ? m_pFormat->GetTextAttr() : nullptr;
@@ -209,7 +216,7 @@ void SwContentControl::SwClientNotify(const SwModify&, const SfxHint& rHint)
     if (pLegacy->GetWhich() == RES_REMOVE_UNO_OBJECT)
     {
         // Invalidate cached uno object.
-        SetXContentControl(uno::Reference<text::XTextContent>());
+        SetXContentControl(nullptr);
         GetNotifier().Broadcast(SfxHint(SfxHintId::Deinitializing));
     }
 }
@@ -301,6 +308,32 @@ double SwContentControl::GetCurrentDateValue() const
     return dCurrentDate;
 }
 
+bool SwContentControl::IsInteractingCharacter(sal_Unicode cCh)
+{
+    if (GetCheckbox())
+    {
+        return cCh == ' ';
+    }
+
+    if (GetPicture())
+    {
+        return cCh == '\r';
+    }
+
+    return false;
+}
+
+bool SwContentControl::ShouldOpenPopup(const vcl::KeyCode& rKeyCode)
+{
+    if (HasListItems() || GetDate())
+    {
+        // Alt-down opens the popup.
+        return rKeyCode.IsMod2() && rKeyCode.GetCode() == KEY_DOWN;
+    }
+
+    return false;
+}
+
 void SwContentControl::dumpAsXml(xmlTextWriterPtr pWriter) const
 {
     (void)xmlTextWriterStartElement(pWriter, BAD_CAST("SwContentControl"));
@@ -326,6 +359,8 @@ void SwContentControl::dumpAsXml(xmlTextWriterPtr pWriter) const
                                       BAD_CAST(m_aDateLanguage.toUtf8().getStr()));
     (void)xmlTextWriterWriteAttribute(pWriter, BAD_CAST("current-date"),
                                       BAD_CAST(m_aCurrentDate.toUtf8().getStr()));
+    (void)xmlTextWriterWriteAttribute(pWriter, BAD_CAST("plain-text"),
+                                      BAD_CAST(OString::boolean(m_bPlainText).getStr()));
     (void)xmlTextWriterWriteAttribute(pWriter, BAD_CAST("placeholder-doc-part"),
                                       BAD_CAST(m_aPlaceholderDocPart.toUtf8().getStr()));
     (void)xmlTextWriterWriteAttribute(pWriter, BAD_CAST("data-binding-prefix-mappings"),

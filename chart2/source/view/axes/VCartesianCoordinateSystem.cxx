@@ -23,6 +23,8 @@
 #include <BaseCoordinateSystem.hxx>
 #include <AxisIndexDefines.hxx>
 #include <Axis.hxx>
+#include <DataTable.hxx>
+#include <Diagram.hxx>
 #include <AxisHelper.hxx>
 #include <cppuhelper/implbase.hxx>
 #include <ChartModel.hxx>
@@ -98,11 +100,11 @@ void VCartesianCoordinateSystem::createGridShapes()
 }
 
 void VCartesianCoordinateSystem::createVAxisList(
-              const rtl::Reference<::chart::ChartModel> & xChartDoc
-            , const awt::Size& rFontReferenceSize
-            , const awt::Rectangle& rMaximumSpaceForLabels
-            , bool bLimitSpaceForLabels
-            )
+            const rtl::Reference<::chart::ChartModel> & xChartDoc,
+            const awt::Size& rFontReferenceSize,
+            const awt::Rectangle& rMaximumSpaceForLabels,
+            bool bLimitSpaceForLabels,
+            std::vector<std::unique_ptr<VSeriesPlotter>>& rSeriesPlotterList)
 {
     // note: using xChartDoc itself as XNumberFormatsSupplier would cause
     // a leak from VCartesianAxis due to cyclic reference
@@ -130,7 +132,8 @@ void VCartesianCoordinateSystem::createVAxisList(
             if(!xAxis.is() || !AxisHelper::shouldAxisBeDisplayed( xAxis, m_xCooSysModel ))
                 continue;
 
-            AxisProperties aAxisProperties(xAxis,getExplicitCategoriesProvider());
+            rtl::Reference<Diagram> xDiagram(xChartDoc->getFirstChartDiagram());
+            AxisProperties aAxisProperties(xAxis, getExplicitCategoriesProvider(), xDiagram->getDataTableRef());
             aAxisProperties.m_nDimensionIndex = nDimensionIndex;
             aAxisProperties.m_bSwapXAndY = bSwapXAndY;
             aAxisProperties.m_bIsMainAxis = (nAxisIndex==0);
@@ -163,6 +166,7 @@ void VCartesianCoordinateSystem::createVAxisList(
             apVAxis->set3DWallPositions( m_eLeftWallPos, m_eBackWallPos, m_eBottomPos );
 
             apVAxis->initAxisLabelProperties(rFontReferenceSize,rMaximumSpaceForLabels);
+            apVAxis->createDataTableView(rSeriesPlotterList, xNumberFormatsSupplier, xChartDoc);
         }
     }
 }

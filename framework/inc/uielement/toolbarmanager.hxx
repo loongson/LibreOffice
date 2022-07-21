@@ -64,10 +64,6 @@ public:
     virtual void Init() = 0;
     virtual void Destroy() = 0;
     virtual css::uno::Reference<css::awt::XWindow> GetInterface() = 0;
-    virtual css::uno::Reference<css::frame::XStatusListener> CreateToolBoxController(
-                            const css::uno::Reference<css::frame::XFrame>& rFrame,
-                            ToolBoxItemId nId,
-                            const OUString& aCommandURL ) = 0;
     virtual void InsertItem(ToolBoxItemId nId,
                             const OUString& rString,
                             const OUString& rCommandURL,
@@ -87,6 +83,7 @@ public:
     virtual void Clear() = 0;
     virtual void SetName(const OUString& rName) = 0;
     virtual void SetHelpId(const OString& rHelpId) = 0;
+    virtual void TrackImageOrientation(const css::uno::Reference<css::frame::XFrame>& rFrame) = 0;
     virtual bool WillUsePopupMode() = 0;
     virtual bool IsReallyVisible() = 0;
     virtual void SetIconSize(ToolBoxButtonSize eSize) = 0;
@@ -229,6 +226,7 @@ class ToolBarManager final : public ToolbarManager_Base
 
         std::unique_ptr<ToolBarManagerImpl>                          m_pImpl;
         VclPtr<ToolBox>                                              m_pToolBar;
+        weld::Toolbar*                                               m_pWeldedToolBar;
 
         OUString                                                     m_aModuleIdentifier;
         OUString                                                     m_aResourceName;

@@ -429,13 +429,13 @@ void ScTabView::SetCursor( SCCOL nPosX, SCROW nPosY, bool bNew )
     tools::Rectangle aNewRowArea(0, aOldSize.getHeight(), aOldSize.getWidth(), aNewSize.getHeight());
 
     // Only invalidate if spreadsheet extended to the right
-    if (aNewColArea.getWidth())
+    if (aNewColArea.getOpenWidth())
     {
         SfxLokHelper::notifyInvalidation(aViewData.GetViewShell(), &aNewColArea);
     }
 
     // Only invalidate if spreadsheet extended to the bottom
-    if (aNewRowArea.getHeight())
+    if (aNewRowArea.getOpenHeight())
     {
         SfxLokHelper::notifyInvalidation(aViewData.GetViewShell(), &aNewRowArea);
     }
@@ -1883,6 +1883,7 @@ void ScTabView::SetTabNo( SCTAB nTab, bool bNew, bool bExtendSelection, bool bSa
     // UpdateShow before SetCursor, so that UpdateAutoFillMark finds the correct
     // window  (is called from SetCursor)
     UpdateShow();
+    aViewData.GetView()->TestHintWindow();
 
     SfxBindings& rBindings = aViewData.GetBindings();
     ScMarkData& rMark = aViewData.GetMarkData();

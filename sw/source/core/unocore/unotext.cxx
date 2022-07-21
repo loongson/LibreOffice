@@ -61,6 +61,7 @@
 #include <doc.hxx>
 #include <IDocumentRedlineAccess.hxx>
 #include <IDocumentUndoRedo.hxx>
+#include <bookmark.hxx>
 #include <redline.hxx>
 #include <swundo.hxx>
 #include <section.hxx>
@@ -1338,8 +1339,7 @@ SwXText::Impl::finishOrAppendParagraph(
     OSL_ENSURE(pTextNode, "no SwTextNode?");
     if (pTextNode)
     {
-        xRet.set(SwXParagraph::CreateXParagraph(*m_pDoc, pTextNode, &m_rThis),
-                uno::UNO_QUERY);
+        xRet = SwXParagraph::CreateXParagraph(*m_pDoc, pTextNode, &m_rThis);
     }
 
     return xRet;
@@ -1759,6 +1759,29 @@ SwXText::convertToTextFrame(
                             aAnchor.SetAnchor(aMovePam.Start());
                             m_pImpl->m_pDoc->SetAttr(aAnchor, *pFrameFormat);
                         }
+                        else
+                        {
+                            // if this frame is a textbox of a shape anchored to us, move this textbox too.
+                            const auto& pTextBoxes = pFrameFormat->GetOtherTextBoxFormats();
+                            if (pFrameFormat->Which() == RES_FLYFRMFMT && pTextBoxes
+                                && pTextBoxes->GetOwnerShape())
+                            {
+                                const auto& rShapeAnchor = pTextBoxes->GetOwnerShape()->GetAnchor();
+                                if (rShapeAnchor.GetAnchorId() == RndStdIds::FLY_AS_CHAR
+                                    && rShapeAnchor.GetContentAnchor() && pFrameFormat->GetAnchor().GetContentAnchor()
+                                    && pStartPam->ContainsPosition(*pFrameFormat->GetAnchor().GetContentAnchor()))
+                                {
+                                    const auto& rAnchorNode
+                                        = pFrameFormat->GetAnchor().GetContentAnchor()->nNode.GetNode();
+                                    if (!(rAnchorNode.FindFooterStartNode() || rAnchorNode.FindHeaderStartNode()))
+                                    {
+                                        SwFormatAnchor aAnchor(pFrameFormat->GetAnchor());
+                                        aAnchor.SetAnchor(aMovePam.Start());
+                                        m_pImpl->m_pDoc->SetAttr(aAnchor, *pFrameFormat);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -2008,6 +2031,65 @@ void SwXText::Impl::ConvertCell(
     SwNodeRange aCellRange(aStartCellPam.Start()->nNode,
             aEndCellPam.End()->nNode);
     rRowNodes.push_back(aCellRange); // note: invalidates pLastCell!
+
+    // tdf#149649 delete any fieldmarks overlapping the cell
+    IDocumentMarkAccess & rIDMA(*m_pDoc->getIDocumentMarkAccess());
+    while (::sw::mark::IFieldmark *const pMark = rIDMA.getFieldmarkFor(*aStartCellPam.Start()))
+    {
+        if (pMark->GetMarkEnd() <= *aEndCellPam.End())
+        {
+            if (pMark->GetMarkStart() < *aStartCellPam.Start())
+            {
+                SAL_INFO("sw.uno", "deleting fieldmark overlapping table cell");
+                rIDMA.deleteMark(pMark);
+            }
+            else
+            {
+                break;
+            }
+        }
+        else
+        {
+            SwPosition const sepPos(::sw::mark::FindFieldSep(*pMark));
+            if (*aStartCellPam.Start() <= sepPos && sepPos <= *aEndCellPam.End())
+            {
+                SAL_INFO("sw.uno", "deleting fieldmark with separator in table cell");
+                rIDMA.deleteMark(pMark);
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+    while (::sw::mark::IFieldmark *const pMark = rIDMA.getFieldmarkFor(*aEndCellPam.End()))
+    {
+        if (*aStartCellPam.Start() <= pMark->GetMarkStart())
+        {
+            if (*aEndCellPam.End() < pMark->GetMarkEnd())
+            {
+                SAL_INFO("sw.uno", "deleting fieldmark overlapping table cell");
+                rIDMA.deleteMark(pMark);
+            }
+            else
+            {
+                break;
+            }
+        }
+        else
+        {
+            SwPosition const sepPos(::sw::mark::FindFieldSep(*pMark));
+            if (*aStartCellPam.Start() <= sepPos && sepPos <= *aEndCellPam.End())
+            {
+                SAL_INFO("sw.uno", "deleting fieldmark with separator in table cell");
+                rIDMA.deleteMark(pMark);
+            }
+            else
+            {
+                break;
+            }
+       }
+    }
 }
 
 typedef uno::Sequence< text::TableColumnSeparator > TableColumnSeparators;
@@ -2477,6 +2559,12 @@ SwXBodyText::createTextCursorByRange(
 
 uno::Reference< container::XEnumeration > SAL_CALL
 SwXBodyText::createEnumeration()
+{
+    return createParagraphEnumeration();
+}
+
+rtl::Reference< SwXParagraphEnumeration >
+SwXBodyText::createParagraphEnumeration()
 {
     SolarMutexGuard aGuard;
 

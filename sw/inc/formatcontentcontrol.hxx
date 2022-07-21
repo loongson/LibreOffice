@@ -25,10 +25,15 @@
 #include <cppuhelper/weakref.hxx>
 #include <sal/types.h>
 #include <svl/poolitem.hxx>
+#include <unotools/weakref.hxx>
 
 #include "calbck.hxx"
 #include "swdllapi.h"
 
+namespace vcl
+{
+class KeyCode;
+}
 class SwContentControl;
 class SwTextContentControl;
 class SwTextNode;
@@ -41,6 +46,7 @@ enum class SwContentControlType
     DROP_DOWN_LIST,
     PICTURE,
     DATE,
+    PLAIN_TEXT,
 };
 
 /// SfxPoolItem subclass that wraps an SwContentControl.
@@ -102,7 +108,7 @@ public:
 /// Stores the properties of a content control.
 class SW_DLLPUBLIC SwContentControl : public sw::BroadcastingModify
 {
-    css::uno::WeakReference<css::text::XTextContent> m_wXContentControl;
+    unotools::WeakReference<SwXContentControl> m_wXContentControl;
 
     SwFormatContentControl* m_pFormat;
 
@@ -138,6 +144,9 @@ class SW_DLLPUBLIC SwContentControl : public sw::BroadcastingModify
 
     /// Date in YYYY-MM-DDT00:00:00Z format.
     OUString m_aCurrentDate;
+
+    /// Plain text, i.e. not rich text.
+    bool m_bPlainText = false;
 
     /// The placeholder's doc part: just remembered.
     OUString m_aPlaceholderDocPart;
@@ -177,15 +186,12 @@ public:
 
     void NotifyChangeTextNode(SwTextNode* pTextNode);
 
-    const css::uno::WeakReference<css::text::XTextContent>& GetXContentControl() const
+    const unotools::WeakReference<SwXContentControl>& GetXContentControl() const
     {
         return m_wXContentControl;
     }
 
-    void SetXContentControl(const css::uno::Reference<css::text::XTextContent>& xContentCnotrol)
-    {
-        m_wXContentControl = xContentCnotrol;
-    }
+    void SetXContentControl(const rtl::Reference<SwXContentControl>& xContentCnotrol);
 
     virtual void SwClientNotify(const SwModify&, const SfxHint&) override;
 
@@ -254,6 +260,10 @@ public:
     /// Formats m_oSelectedDate, taking m_aDateFormat and m_aDateLanguage into account.
     OUString GetDateString() const;
 
+    void SetPlainText(bool bPlainText) { m_bPlainText = bPlainText; }
+
+    bool GetPlainText() const { return m_bPlainText; }
+
     void SetPlaceholderDocPart(const OUString& rPlaceholderDocPart)
     {
         m_aPlaceholderDocPart = rPlaceholderDocPart;
@@ -271,6 +281,12 @@ public:
     void SetSelectedDate(std::optional<double> oSelectedDate) { m_oSelectedDate = oSelectedDate; }
 
     std::optional<double> GetSelectedDate() const { return m_oSelectedDate; }
+
+    /// Should this character (during key input) interact with the content control?
+    bool IsInteractingCharacter(sal_Unicode cCh);
+
+    /// Given rKeyCode as a keyboard event, should a popup be opened for this content control?
+    bool ShouldOpenPopup(const vcl::KeyCode& rKeyCode);
 
     void dumpAsXml(xmlTextWriterPtr pWriter) const;
 

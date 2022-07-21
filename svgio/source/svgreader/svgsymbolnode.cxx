@@ -24,7 +24,7 @@ namespace svgio::svgreader
         SvgSymbolNode::SvgSymbolNode(
             SvgDocument& rDocument,
             SvgNode* pParent)
-        :   SvgNode(SVGToken::Svg, rDocument, pParent),
+        :   SvgNode(SVGToken::Symbol, rDocument, pParent),
             maSvgStyleAttributes(*this)
         {
         }
@@ -44,7 +44,7 @@ namespace svgio::svgreader
             SvgNode::parseAttribute(rTokenName, aSVGToken, aContent);
 
             // read style attributes
-            maSvgStyleAttributes.parseStyleAttribute(aSVGToken, aContent, false);
+            maSvgStyleAttributes.parseStyleAttribute(aSVGToken, aContent);
 
             // parse own
             switch(aSVGToken)

@@ -817,8 +817,8 @@ void ScGridWindow::DrawContent(OutputDevice &rDevice, const ScTableInfo& rTableI
         }
     }
 
-    // edge (area) (Pixel)
-    if ( nX2==rDoc.MaxCol() || nY2==rDoc.MaxRow() )
+    // app-background / document edge (area) (Pixel)
+    if ( !bIsTiledRendering && ( nX2 == rDoc.MaxCol() || nY2 == rDoc.MaxRow() ) )
     {
         // save MapMode and set to pixel
         MapMode aCurrentMapMode(pContentDev->GetMapMode());
@@ -1168,8 +1168,9 @@ void ScGridWindow::DrawContent(OutputDevice &rDevice, const ScTableInfo& rTableI
                             // to be tweaked temporarily to match the current view's zoom.
                             SuppressEditViewMessagesGuard aGuard(*pOtherEditView);
 
-                            pOtherEditView->SetOutputArea(rDevice.PixelToLogic(aEditRect));
-                            pOtherEditView->Paint(rDevice.PixelToLogic(aEditRect), &rDevice);
+                            aEditRect = rDevice.PixelToLogic(aEditRect);
+                            aEditRect.Intersection(pOtherEditView->GetOutputArea());
+                            pOtherEditView->Paint(aEditRect, &rDevice);
 
                             // Rollback the mapmode and 'output area'.
                             rOtherWin.SetMapMode(aOrigMapMode);
@@ -1273,7 +1274,6 @@ void ScGridWindow::DrawContent(OutputDevice &rDevice, const ScTableInfo& rTableI
             // So they need to be in the same coordinates/units. This is tied to the mapmode of the gridwin
             // attached to the EditView, so we have to change its mapmode too (temporarily). We save the
             // original mapmode and 'output area' and roll them back when we finish painting to rDevice.
-            const tools::Rectangle aOrigOutputArea(pEditView->GetOutputArea()); // Not in pixels.
             const MapMode aOrigMapMode = GetMapMode();
             SetMapMode(rDevice.GetMapMode());
 
@@ -1282,8 +1282,9 @@ void ScGridWindow::DrawContent(OutputDevice &rDevice, const ScTableInfo& rTableI
             // cursor-messaging done in the non print-twips mode)
             SuppressEditViewMessagesGuard aGuard(*pEditView);
 
-            pEditView->SetOutputArea(rDevice.PixelToLogic(aEditRect));
-            pEditView->Paint(rDevice.PixelToLogic(aEditRect), &rDevice);
+            aEditRect = rDevice.PixelToLogic(aEditRect);
+            aEditRect.Intersection(pEditView->GetOutputArea());
+            pEditView->Paint(aEditRect, &rDevice);
 
             // EditView will do the cursor notifications correctly if we're in
             // print-twips messaging mode.
@@ -1312,7 +1313,6 @@ void ScGridWindow::DrawContent(OutputDevice &rDevice, const ScTableInfo& rTableI
 
             // Rollback the mapmode and 'output area'.
             SetMapMode(aOrigMapMode);
-            pEditView->SetOutputArea(aOrigOutputArea);
         }
         else
         {

@@ -21,6 +21,7 @@
 #include "TickmarkProperties.hxx"
 #include <Axis.hxx>
 #include <LabelAlignment.hxx>
+#include <DataTable.hxx>
 
 #include <com/sun/star/chart/ChartAxisLabelPosition.hpp>
 #include <com/sun/star/chart/ChartAxisMarkPosition.hpp>
@@ -110,7 +111,8 @@ struct AxisProperties final
 
     AxisLabelAlignment maLabelAlignment;
 
-    bool            m_bDisplayLabels;
+    bool m_bDisplayDataTable;
+    bool m_bDisplayLabels;
 
     // Compatibility option: starting from LibreOffice 5.1 the rotated
     // layout is preferred to staggering for axis labels.
@@ -138,10 +140,13 @@ struct AxisProperties final
 
     bool                                m_bLimitSpaceForLabels;
 
+    rtl::Reference<::chart::DataTable> m_xDataTableModel;
+
     //methods:
 
-    AxisProperties( rtl::Reference< ::chart::Axis > xAxisModel
-                  , ExplicitCategoriesProvider* pExplicitCategoriesProvider );
+    AxisProperties(rtl::Reference<::chart::Axis> xAxisModel,
+                   ExplicitCategoriesProvider* pExplicitCategoriesProvider,
+                   rtl::Reference<::chart::DataTable> const& xDataTableModel);
 
     void init(bool bCartesian=false);//init from model data (m_xAxisModel)
 

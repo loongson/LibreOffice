@@ -153,8 +153,9 @@ TickmarkProperties AxisProperties::getBiggestTickmarkProperties()
     return aTickmarkProperties;
 }
 
-AxisProperties::AxisProperties( rtl::Reference< Axis > xAxisModel
-                              , ExplicitCategoriesProvider* pExplicitCategoriesProvider )
+AxisProperties::AxisProperties(rtl::Reference<::chart::Axis> xAxisModel,
+                               ExplicitCategoriesProvider* pExplicitCategoriesProvider,
+                               rtl::Reference<::chart::DataTable> const& xDataTableModel)
     : m_xAxisModel(std::move(xAxisModel))
     , m_nDimensionIndex(0)
     , m_bIsMainAxis(true)
@@ -164,6 +165,7 @@ AxisProperties::AxisProperties( rtl::Reference< Axis > xAxisModel
     , m_eTickmarkPos( css::chart::ChartAxisMarkPosition_AT_LABELS_AND_AXIS )
     , m_bCrossingAxisHasReverseDirection(false)
     , m_bCrossingAxisIsCategoryAxes(false)
+    , m_bDisplayDataTable(false)
     , m_bDisplayLabels( true )
     , m_bTryStaggeringFirst( false )
     , m_nNumberFormatKey(0)
@@ -173,6 +175,7 @@ AxisProperties::AxisProperties( rtl::Reference< Axis > xAxisModel
     , m_bComplexCategories(false)
     , m_pExplicitCategoriesProvider(pExplicitCategoriesProvider)
     , m_bLimitSpaceForLabels(false)
+    , m_xDataTableModel(xDataTableModel)
 {
 }
 
@@ -254,6 +257,11 @@ void AxisProperties::init( bool bCartesian )
 
     if( bCartesian )
     {
+        if (m_nDimensionIndex == 0)
+        {
+            m_bDisplayDataTable = m_xDataTableModel.is();
+        }
+
         if( m_nDimensionIndex == 0 && m_nAxisType == AxisType::CATEGORY
                 && m_pExplicitCategoriesProvider && m_pExplicitCategoriesProvider->hasComplexCategories() )
             m_bComplexCategories = true;

@@ -40,10 +40,13 @@ class Test : public test::BootstrapFixture, public XmlTestTools
     void checkRectPrimitive(Primitive2DSequence const & rPrimitive);
 
     void testStyles();
+    void testSymbol();
     void testTdf87309();
     void testFontsizeKeywords();
     void testFontsizePercentage();
     void testFontsizeRelative();
+    void testMarkerOrient();
+    void testMarkerInPresentation();
     void testTdf45771();
     void testTdf97941();
     void testTdf104339();
@@ -57,8 +60,11 @@ class Test : public test::BootstrapFixture, public XmlTestTools
     void testNoneColor();
     void testTdf97936();
     void testTdf149893();
+    void testShapeWithClipPathAndCssStyle();
     void testClipPathAndParentStyle();
     void testClipPathAndStyle();
+    void testShapeWithClipPath();
+    void testClipPathUsingClipPath();
     void testi125329();
     void testMaskingPath07b();
     void test123926();
@@ -79,10 +85,13 @@ class Test : public test::BootstrapFixture, public XmlTestTools
 public:
     CPPUNIT_TEST_SUITE(Test);
     CPPUNIT_TEST(testStyles);
+    CPPUNIT_TEST(testSymbol);
     CPPUNIT_TEST(testTdf87309);
     CPPUNIT_TEST(testFontsizeKeywords);
     CPPUNIT_TEST(testFontsizePercentage);
     CPPUNIT_TEST(testFontsizeRelative);
+    CPPUNIT_TEST(testMarkerOrient);
+    CPPUNIT_TEST(testMarkerInPresentation);
     CPPUNIT_TEST(testTdf45771);
     CPPUNIT_TEST(testTdf97941);
     CPPUNIT_TEST(testTdf104339);
@@ -96,8 +105,11 @@ public:
     CPPUNIT_TEST(testNoneColor);
     CPPUNIT_TEST(testTdf97936);
     CPPUNIT_TEST(testTdf149893);
+    CPPUNIT_TEST(testShapeWithClipPathAndCssStyle);
     CPPUNIT_TEST(testClipPathAndParentStyle);
     CPPUNIT_TEST(testClipPathAndStyle);
+    CPPUNIT_TEST(testShapeWithClipPath);
+    CPPUNIT_TEST(testClipPathUsingClipPath);
     CPPUNIT_TEST(testi125329);
     CPPUNIT_TEST(testMaskingPath07b);
     CPPUNIT_TEST(test123926);
@@ -188,6 +200,23 @@ void Test::testStyles()
     CPPUNIT_ASSERT(arePrimitive2DSequencesEqual(aSequenceRect, aSequenceRectWithStyle));
     CPPUNIT_ASSERT(arePrimitive2DSequencesEqual(aSequenceRect, aSequenceRectWithParentStyle));
     CPPUNIT_ASSERT(arePrimitive2DSequencesEqual(aSequenceRect, aSequenceRectWithStylesByGroup));
+}
+
+void Test::testSymbol()
+{
+    Primitive2DSequence aSequenceTdf87309 = parseSvg(u"/svgio/qa/cppunit/data/symbol.svg");
+    CPPUNIT_ASSERT_EQUAL(1, static_cast<int>(aSequenceTdf87309.getLength()));
+
+    drawinglayer::Primitive2dXmlDump dumper;
+    xmlDocUniquePtr pDocument = dumper.dumpAndParse(aSequenceTdf87309);
+
+    CPPUNIT_ASSERT (pDocument);
+
+    // tdf#126330: Without the fix in place, this test would have failed with
+    // - Expected: 1
+    // - Actual  : 2
+    // number of nodes is incorrect
+    assertXPath(pDocument, "/primitive2D/transform/polypolygoncolor", "color", "#00d000");
 }
 
 void Test::testTdf87309()
@@ -308,6 +337,57 @@ void Test::testFontsizeRelative()
     assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[2]", "text", "Sample");
     assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[2]", "height", "50");
     assertXPath(pDocument, "/primitive2D/transform/textsimpleportion[2]", "familyname", "serif");
+}
+
+void Test::testMarkerOrient()
+{
+    Primitive2DSequence aSequence = parseSvg(u"/svgio/qa/cppunit/data/MarkerOrient.svg");
+    CPPUNIT_ASSERT_EQUAL(1, static_cast<int>(aSequence.getLength()));
+
+    drawinglayer::Primitive2dXmlDump dumper;
+    xmlDocUniquePtr pDocument = dumper.dumpAndParse(aSequence);
+
+    CPPUNIT_ASSERT (pDocument);
+
+    assertXPath(pDocument, "/primitive2D/transform/transform[1]", "xy11", "0");
+    assertXPath(pDocument, "/primitive2D/transform/transform[1]", "xy12", "0");
+    assertXPath(pDocument, "/primitive2D/transform/transform[1]", "xy13", "7");
+    assertXPath(pDocument, "/primitive2D/transform/transform[1]", "xy21", "0");
+    assertXPath(pDocument, "/primitive2D/transform/transform[1]", "xy22", "0");
+    assertXPath(pDocument, "/primitive2D/transform/transform[1]", "xy23", "13");
+    assertXPath(pDocument, "/primitive2D/transform/transform[1]", "xy31", "0");
+    assertXPath(pDocument, "/primitive2D/transform/transform[1]", "xy32", "0");
+    assertXPath(pDocument, "/primitive2D/transform/transform[1]", "xy33", "1");
+
+    assertXPath(pDocument, "/primitive2D/transform/transform[2]", "xy11", "0");
+    assertXPath(pDocument, "/primitive2D/transform/transform[2]", "xy12", "0");
+    assertXPath(pDocument, "/primitive2D/transform/transform[2]", "xy13", "87");
+    assertXPath(pDocument, "/primitive2D/transform/transform[2]", "xy21", "0");
+    assertXPath(pDocument, "/primitive2D/transform/transform[2]", "xy22", "0");
+    assertXPath(pDocument, "/primitive2D/transform/transform[2]", "xy23", "87");
+    assertXPath(pDocument, "/primitive2D/transform/transform[2]", "xy31", "0");
+    assertXPath(pDocument, "/primitive2D/transform/transform[2]", "xy32", "0");
+    assertXPath(pDocument, "/primitive2D/transform/transform[2]", "xy33", "1");
+}
+
+void Test::testMarkerInPresentation()
+{
+    Primitive2DSequence aSequence = parseSvg(u"/svgio/qa/cppunit/data/markerInPresentation.svg");
+    CPPUNIT_ASSERT_EQUAL(1, static_cast<int>(aSequence.getLength()));
+
+    drawinglayer::Primitive2dXmlDump dumper;
+    xmlDocUniquePtr pDocument = dumper.dumpAndParse(aSequence);
+
+    CPPUNIT_ASSERT (pDocument);
+
+    assertXPath(pDocument, "/primitive2D/transform/transform/polypolygonstroke/line", 1);
+    assertXPath(pDocument, "/primitive2D/transform/transform/polypolygonstroke/polypolygon/polygon", 1);
+    assertXPath(pDocument, "/primitive2D/transform/transform/polypolygonstroke/polypolygon/polygon", 1);
+
+    // Without the fix in place, this test would have failed with
+    // - Expected: 0
+    // - Actual  : 2
+    assertXPath(pDocument, "/primitive2D/transform/transform/transform", 0);
 }
 
 void Test::testTdf45771()
@@ -541,6 +621,21 @@ void Test::testTdf149893()
     assertXPath(pDocument, "/primitive2D/transform/polypolygoncolor", "color", "#008000");
 }
 
+void Test::testShapeWithClipPathAndCssStyle()
+{
+    // tdf#97539: Check there is a mask and 3 polygons
+    Primitive2DSequence aSequenceClipPathAndStyle = parseSvg(u"/svgio/qa/cppunit/data/ShapeWithClipPathAndCssStyle.svg");
+    CPPUNIT_ASSERT_EQUAL(1, static_cast<int>(aSequenceClipPathAndStyle.getLength()));
+
+    drawinglayer::Primitive2dXmlDump dumper;
+    xmlDocUniquePtr pDocument = dumper.dumpAndParse(Primitive2DContainer(aSequenceClipPathAndStyle));
+
+    CPPUNIT_ASSERT (pDocument);
+
+    assertXPath(pDocument, "/primitive2D/transform/mask/polypolygon/polygon", 2);
+    assertXPath(pDocument, "/primitive2D/transform/mask/polypolygoncolor/polypolygon/polygon", 1);
+}
+
 void Test::testClipPathAndParentStyle()
 {
     //Check that fill color, stroke color and stroke-width are inherited from use element
@@ -575,6 +670,35 @@ void Test::testClipPathAndStyle()
     assertXPath(pDocument, "/primitive2D/transform/polypolygonstroke/line", "color", "#0000cc");
     assertXPath(pDocument, "/primitive2D/transform/polypolygonstroke/line", "width", "2");
 
+}
+
+void Test::testShapeWithClipPath()
+{
+    // Check there is a mask and 3 polygons
+    Primitive2DSequence aSequenceClipPathAndStyle = parseSvg(u"/svgio/qa/cppunit/data/ShapeWithClipPath.svg");
+    CPPUNIT_ASSERT_EQUAL(1, static_cast<int>(aSequenceClipPathAndStyle.getLength()));
+
+    drawinglayer::Primitive2dXmlDump dumper;
+    xmlDocUniquePtr pDocument = dumper.dumpAndParse(Primitive2DContainer(aSequenceClipPathAndStyle));
+
+    CPPUNIT_ASSERT (pDocument);
+
+    assertXPath(pDocument, "/primitive2D/transform/mask/polypolygon/polygon", 2);
+    assertXPath(pDocument, "/primitive2D/transform/mask/polypolygoncolor/polypolygon/polygon", 1);
+}
+
+void Test::testClipPathUsingClipPath()
+{
+    Primitive2DSequence aSequenceClipPathAndStyle = parseSvg(u"/svgio/qa/cppunit/data/ClipPathUsingClipPath.svg");
+    CPPUNIT_ASSERT_EQUAL(1, static_cast<int>(aSequenceClipPathAndStyle.getLength()));
+
+    drawinglayer::Primitive2dXmlDump dumper;
+    xmlDocUniquePtr pDocument = dumper.dumpAndParse(Primitive2DContainer(aSequenceClipPathAndStyle));
+
+    CPPUNIT_ASSERT (pDocument);
+
+    assertXPath(pDocument, "/primitive2D/transform/mask/polypolygon/polygon/point", 20);
+    assertXPath(pDocument, "/primitive2D/transform/mask/mask/polypolygon/polygon/point", 13);
 }
 
 void Test::testi125329()

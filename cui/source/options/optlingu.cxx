@@ -22,6 +22,7 @@
 #include <vcl/weld.hxx>
 #include <i18nlangtag/languagetag.hxx>
 #include <i18nlangtag/mslangid.hxx>
+#include <o3tl/safeint.hxx>
 #include <officecfg/Office/Security.hxx>
 #include <unotools/lingucfg.hxx>
 #include <unotools/linguprops.hxx>
@@ -414,12 +415,12 @@ Sequence< OUString > SvxLinguData_Impl::GetSortedImplNames( LanguageType nLang, 
     if (pTable->count( nLang ))
         aRes = (*pTable)[ nLang ];      // add configured services
     sal_Int32 nIdx = aRes.getLength();
-    DBG_ASSERT( static_cast<sal_Int32>(nDisplayServices) >= nIdx, "size mismatch" );
+    DBG_ASSERT( nDisplayServices >= o3tl::make_unsigned(nIdx), "size mismatch" );
     aRes.realloc( nDisplayServices );
     OUString *pRes = aRes.getArray();
 
     // add not configured services
-    for (sal_Int32 i = 0;  i < static_cast<sal_Int32>(nDisplayServices);  ++i)
+    for (sal_uInt32 i = 0;  i < nDisplayServices;  ++i)
     {
         const ServiceInfo_Impl &rInfo = aDisplayServiceArr[ i ];
         OUString aImplName;

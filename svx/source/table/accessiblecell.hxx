@@ -47,15 +47,15 @@ class AccessibleCell : public AccessibleCellBase
                      , public IAccessibleViewForwarderListener
 {
 public:
-    AccessibleCell( const css::uno::Reference< css::accessibility::XAccessible>& rxParent, const sdr::table::CellRef& rCell, sal_Int32 nIndex, const AccessibleShapeTreeInfo& rShapeTreeInfo);
+    AccessibleCell( const css::uno::Reference< css::accessibility::XAccessible>& rxParent, sdr::table::CellRef xCell, sal_Int32 nIndex, const AccessibleShapeTreeInfo& rShapeTreeInfo);
     virtual ~AccessibleCell() override;
     AccessibleCell(const AccessibleCell&) = delete;
     AccessibleCell& operator=(const AccessibleCell&) = delete;
 
     void Init();
 
-    virtual bool SetState (sal_Int16 aState) override;
-    virtual bool ResetState (sal_Int16 aState) override;
+    virtual bool SetState (sal_Int64 aState) override;
+    virtual bool ResetState (sal_Int64 aState) override;
 
     // XInterface
     virtual css::uno::Any SAL_CALL queryInterface( const css::uno::Type& aType ) override;
@@ -65,7 +65,7 @@ public:
     // XAccessibleContext
     virtual sal_Int32 SAL_CALL getAccessibleChildCount() override;
     virtual css::uno::Reference< css::accessibility::XAccessible> SAL_CALL getAccessibleChild(sal_Int32 nIndex) override;
-    virtual css::uno::Reference< css::accessibility::XAccessibleStateSet> SAL_CALL getAccessibleStateSet() override;
+    virtual sal_Int64 SAL_CALL getAccessibleStateSet() override;
     virtual sal_Int32 SAL_CALL getAccessibleIndexInParent() override;
     virtual OUString SAL_CALL getAccessibleName() override;
     const sdr::table::CellRef& getCellRef() const { return mxCell;}

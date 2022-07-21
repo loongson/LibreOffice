@@ -190,6 +190,7 @@ public:
     void testXlsxRowsOrder();
     void testTdf91286();
     void testTdf148820();
+    void testEmbeddedTextInDecimal();
 
     CPPUNIT_TEST_SUITE(ScExportTest2);
 
@@ -312,6 +313,7 @@ public:
     CPPUNIT_TEST(testXlsxRowsOrder);
     CPPUNIT_TEST(testTdf91286);
     CPPUNIT_TEST(testTdf148820);
+    CPPUNIT_TEST(testEmbeddedTextInDecimal);
 
     CPPUNIT_TEST_SUITE_END();
 
@@ -2201,10 +2203,10 @@ void ScExportTest2::testTdf91251_missingOverflowRoundtrip()
 
 void ScExportTest2::testTdf137000_handle_upright()
 {
-    // tdf#106197 When exporting the "upright" attribute, we must set
-    // TextPreRotateAngle to 0.
-    // (Upright is an xml attribute of xdr:txBody/a:bodyPr. It is set when
-    // in a textbox menu we choose: do not rotate this element.)
+    // Upright is an xml attribute of xdr:txBody/a:bodyPr. It is set when in a textbox menu we
+    // choose, 'do not rotate this element'. Implementations are in tdf#106197 with followup
+    // tdf#137000. tdf#149538, tdf#149551 improve the implementation to export 'upright' instead
+    // of workaround 'rot'.
     ScDocShellRef xShell = loadDoc(u"tdf137000_export_upright.", FORMAT_XLSX);
 
     std::shared_ptr<utl::TempFile> pXPathFile = ScBootstrapFixture::exportTo(*xShell, FORMAT_XLSX);
@@ -2212,8 +2214,7 @@ void ScExportTest2::testTdf137000_handle_upright()
         = XPathHelper::parseExport(pXPathFile, m_xSFactory, "xl/drawings/drawing1.xml");
     CPPUNIT_ASSERT(pDrawing);
 
-    assertXPath(pDrawing, "/xdr:wsDr/xdr:twoCellAnchor/xdr:sp/xdr:txBody/a:bodyPr", "rot",
-                "-5400000");
+    assertXPath(pDrawing, "/xdr:wsDr/xdr:twoCellAnchor/xdr:sp/xdr:txBody/a:bodyPr", "upright", "1");
 }
 
 void ScExportTest2::testTdf126305_DataValidatyErrorAlert()
@@ -3090,6 +3091,32 @@ void ScExportTest2::testTdf148820()
         = OString("/x:styleSheet/x:dxfs/x:dxf[" + OString::number(nDxfIdCondFormatLast)
                   + "]/x:fill/x:patternFill/x:bgColor");
     assertXPath(pStyles, sDxfCondFormatXPath, "rgb", "FFA30000");
+
+    xDocSh->DoClose();
+}
+
+namespace
+{
+void lcl_TestEmbeddedTextInDecimal(ScDocShellRef xDocSh)
+{
+    CPPUNIT_ASSERT(xDocSh);
+    ScDocument& rDoc = xDocSh->GetDocument();
+    sal_uInt32 nNumberFormat = rDoc.GetNumberFormat(0, 0, 0);
+    const SvNumberformat* pNumberFormat = rDoc.GetFormatTable()->GetEntry(nNumberFormat);
+    const OUString& rFormatStr = pNumberFormat->GetFormatstring();
+
+    CPPUNIT_ASSERT_EQUAL(OUString("#,##0.000\" \"###\" \"###"), rFormatStr);
+}
+}
+
+void ScExportTest2::testEmbeddedTextInDecimal()
+{
+    ScDocShellRef xDocSh = loadDoc(u"embedded-text-in-decimal.", FORMAT_XLSX);
+    lcl_TestEmbeddedTextInDecimal(xDocSh);
+
+    // save to ODS and reload
+    xDocSh = saveAndReload(*xDocSh, FORMAT_ODS);
+    lcl_TestEmbeddedTextInDecimal(xDocSh);
 
     xDocSh->DoClose();
 }

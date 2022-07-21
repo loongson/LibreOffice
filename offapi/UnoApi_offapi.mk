@@ -646,6 +646,7 @@ $(eval $(call gb_UnoApi_add_idlfiles_noheader,offapi,com/sun/star/chart2,\
 	DataPoint \
 	DataPointProperties \
 	DataSeries \
+	DataTable \
 	Diagram \
 	ErrorBar \
 	GridProperties \
@@ -1650,7 +1651,6 @@ $(eval $(call gb_UnoApi_add_idlfiles,offapi,com/sun/star/accessibility,\
 	XAccessibleMultiLineText \
 	XAccessibleRelationSet \
 	XAccessibleSelection \
-	XAccessibleStateSet \
 	XAccessibleTable \
     XAccessibleTableSelection \
 	XAccessibleText \
@@ -2035,6 +2035,7 @@ $(eval $(call gb_UnoApi_add_idlfiles,offapi,com/sun/star/chart2,\
 	XDataPointCustomLabelField \
 	XDataSeries \
 	XDataSeriesContainer \
+	XDataTable \
 	XDefaultSizeTransmitter \
 	XDiagram \
 	XDiagramProvider \

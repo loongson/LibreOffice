@@ -358,7 +358,7 @@ const GraphicObject& SvXMLGraphicOutputStream::GetGraphicObject()
     Graphic aGraphic(GetGraphic());
     if (aGraphic.GetType() != GraphicType::NONE)
     {
-        mxGrfObj.reset(new GraphicObject(aGraphic));
+        mxGrfObj.reset(new GraphicObject(std::move(aGraphic)));
     }
     return *mxGrfObj;
 }
@@ -390,7 +390,7 @@ bool SvXMLGraphicHelper::ImplGetStreamNames( const OUString& rURLStr,
 
     if( !aURLStr.isEmpty() && aURLStr.indexOf('/')<0 ) // just one token?
     {
-        rPictureStorageName = XML_GRAPHICSTORAGE_NAME;
+        rPictureStorageName = OUString();
         rPictureStreamName = aURLStr;
     }
     else
@@ -439,7 +439,10 @@ SvxGraphicHelperStream_Impl SvXMLGraphicHelper::ImplGetGraphicStream( const OUSt
                                                               const OUString& rPictureStreamName )
 {
     SvxGraphicHelperStream_Impl aRet;
-    aRet.xStorage = ImplGetGraphicStorage( rPictureStorageName );
+    if (!rPictureStorageName.isEmpty())
+        aRet.xStorage = ImplGetGraphicStorage(rPictureStorageName);
+    else
+        aRet.xStorage = mxRootStorage;
 
     sal_Int32 nMode = embed::ElementModes::READ;
     if (SvXMLGraphicHelperMode::Write == meCreateMode)
@@ -856,8 +859,7 @@ uno::Reference<io::XInputStream> SAL_CALL SvXMLGraphicHelper::createInputStream(
 {
     Reference<XInputStream> xInputStream;
 
-    Graphic aGraphic(rxGraphic);
-    GraphicObject aGraphicObject(aGraphic);
+    GraphicObject aGraphicObject((Graphic(rxGraphic)));
 
     if (SvXMLGraphicHelperMode::Write == meCreateMode)
     {

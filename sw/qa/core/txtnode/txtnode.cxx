@@ -25,6 +25,11 @@
 #include <unotxdoc.hxx>
 #include <docsh.hxx>
 #include <formatcontentcontrol.hxx>
+#include <view.hxx>
+#include <edtwin.hxx>
+#include <txatbase.hxx>
+#include <ndtxt.hxx>
+#include <textcontentcontrol.hxx>
 
 constexpr OUStringLiteral DATA_DIRECTORY = u"/sw/qa/core/txtnode/data/";
 
@@ -218,6 +223,99 @@ CPPUNIT_TEST_FIXTURE(SwCoreTxtnodeTest, testInsertDropDownContentControlTwice)
 
     // When trying to insert an inner one, make sure that we don't crash:
     pWrtShell->InsertContentControl(SwContentControlType::DROP_DOWN_LIST);
+}
+
+CPPUNIT_TEST_FIXTURE(SwCoreTxtnodeTest, testCheckboxContentControlKeyboard)
+{
+    // Given an already selected checkbox content control:
+    SwDoc* pDoc = createSwDoc();
+    SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
+    pWrtShell->InsertContentControl(SwContentControlType::CHECKBOX);
+    SwEditWin& rEditWin = pWrtShell->GetView().GetEditWin();
+
+    // When pressing space on the keyboard:
+    KeyEvent aKeyEvent(' ', KEY_SPACE);
+    rEditWin.KeyInput(aKeyEvent);
+
+    // Then make sure the state is toggled:
+    SwTextNode* pTextNode = pWrtShell->GetCursor()->GetNode().GetTextNode();
+    SwTextAttr* pAttr = pTextNode->GetTextAttrForCharAt(0, RES_TXTATR_CONTENTCONTROL);
+    auto pTextContentControl = static_txtattr_cast<SwTextContentControl*>(pAttr);
+    auto& rFormatContentControl
+        = static_cast<SwFormatContentControl&>(pTextContentControl->GetAttr());
+    std::shared_ptr<SwContentControl> pContentControl = rFormatContentControl.GetContentControl();
+    // Without the accompanying fix in place, this test would have failed, because the state
+    // remained unchanged.
+    CPPUNIT_ASSERT(pContentControl->GetChecked());
+}
+
+CPPUNIT_TEST_FIXTURE(SwCoreTxtnodeTest, testDropdownContentControlKeyboard)
+{
+    // Given an already selected dropdown content control:
+    SwDoc* pDoc = createSwDoc();
+    SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
+    pWrtShell->InsertContentControl(SwContentControlType::DROP_DOWN_LIST);
+
+    // When checking if alt-down should open a popup:
+    SwTextContentControl* pTextContentControl = pWrtShell->CursorInsideContentControl();
+    auto& rFormatContentControl
+        = static_cast<SwFormatContentControl&>(pTextContentControl->GetAttr());
+    std::shared_ptr<SwContentControl> pContentControl = rFormatContentControl.GetContentControl();
+    vcl::KeyCode aKeyCode(KEY_DOWN, KEY_MOD2);
+    bool bShouldOpen = pContentControl->ShouldOpenPopup(aKeyCode);
+
+    // Then make sure that the answer is yes for dropdowns:
+    // Without the accompanying fix in place, this test would have failed, the dropdown popup was
+    // mouse-only.
+    CPPUNIT_ASSERT(bShouldOpen);
+}
+
+CPPUNIT_TEST_FIXTURE(SwCoreTxtnodeTest, testPictureContentControlKeyboard)
+{
+    // Given an already selected picture content control:
+    SwDoc* pDoc = createSwDoc();
+    SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
+    pWrtShell->InsertContentControl(SwContentControlType::PICTURE);
+    pWrtShell->GotoObj(/*bNext=*/true, GotoObjFlags::Any);
+
+    // When checking if enter should trigger the file picker:
+    const SwFrameFormat* pFlyFormat = pWrtShell->GetFlyFrameFormat();
+    const SwFormatAnchor& rFormatAnchor = pFlyFormat->GetAnchor();
+    const SwPosition* pAnchorPos = rFormatAnchor.GetContentAnchor();
+    SwTextNode* pTextNode = pAnchorPos->nNode.GetNode().GetTextNode();
+    SwTextAttr* pAttr = pTextNode->GetTextAttrAt(pAnchorPos->nContent.GetIndex(),
+                                                 RES_TXTATR_CONTENTCONTROL, SwTextNode::PARENT);
+    auto pTextContentControl = static_txtattr_cast<SwTextContentControl*>(pAttr);
+    auto& rFormatContentControl
+        = static_cast<SwFormatContentControl&>(pTextContentControl->GetAttr());
+    std::shared_ptr<SwContentControl> pContentControl = rFormatContentControl.GetContentControl();
+    bool bIsInteracting = pContentControl->IsInteractingCharacter('\r');
+
+    // Then make sure that the answer is yes for pictures:
+    // Without the accompanying fix in place, this test would have failed, the picture replacement
+    // file-picker was mouse-only.
+    CPPUNIT_ASSERT(bIsInteracting);
+}
+
+CPPUNIT_TEST_FIXTURE(SwCoreTxtnodeTest, testDateContentControlKeyboard)
+{
+    // Given an already selected date content control:
+    SwDoc* pDoc = createSwDoc();
+    SwWrtShell* pWrtShell = pDoc->GetDocShell()->GetWrtShell();
+    pWrtShell->InsertContentControl(SwContentControlType::DATE);
+
+    // When checking if alt-down should open a popup:
+    SwTextContentControl* pTextContentControl = pWrtShell->CursorInsideContentControl();
+    auto& rFormatContentControl
+        = static_cast<SwFormatContentControl&>(pTextContentControl->GetAttr());
+    std::shared_ptr<SwContentControl> pContentControl = rFormatContentControl.GetContentControl();
+    vcl::KeyCode aKeyCode(KEY_DOWN, KEY_MOD2);
+    bool bShouldOpen = pContentControl->ShouldOpenPopup(aKeyCode);
+
+    // Then make sure that the answer is yes for date:
+    // Without the accompanying fix in place, this test would have failed, the date popup was
+    // mouse-only.
+    CPPUNIT_ASSERT(bShouldOpen);
 }
 
 CPPUNIT_PLUGIN_IMPLEMENT();

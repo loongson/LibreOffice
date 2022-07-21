@@ -32,6 +32,7 @@
 #include <tox.hxx>
 #include <txtfrm.hxx>
 #include <txttxmrk.hxx>
+#include <unoidx.hxx>
 
 #include <optional>
 #include <sal/log.hxx>
@@ -133,6 +134,9 @@ SwTOXMark::~SwTOXMark()
 {
 }
 
+void SwTOXMark::SetXTOXMark(rtl::Reference<SwXDocumentIndexMark> const& xMark)
+{ m_wXDocumentIndexMark = xMark.get(); }
+
 void SwTOXMark::RegisterToTOXType(SwTOXType& rType)
 {
     SvtListener::EndListeningAll();
@@ -158,13 +162,17 @@ void SwTOXMark::Notify(const SfxHint& rHint)
         auto pLegacyHint = static_cast<const sw::LegacyModifyHint*>(&rHint);
         CallSwClientNotify(rHint);
         if (pLegacyHint->m_pOld && (RES_REMOVE_UNO_OBJECT == pLegacyHint->m_pOld->Which()))
-            SetXTOXMark(css::uno::Reference<css::text::XDocumentIndexMark>(nullptr));
-    } else if (auto pCollectHint = dynamic_cast<const sw::CollectTextMarksHint*>(&rHint))
+            SetXTOXMark(nullptr);
+    }
+    else if (rHint.GetId() == SfxHintId::SwCollectTextMarks)
     {
+        auto pCollectHint = static_cast<const sw::CollectTextMarksHint*>(&rHint);
         if(GetTextTOXMark())
             pCollectHint->m_rMarks.push_back(this);
-    } else if (auto pCollectLayoutHint = dynamic_cast<const sw::CollectTextTOXMarksForLayoutHint*>(&rHint))
+    }
+    else if (rHint.GetId() == SfxHintId::SwCollectTextTOXMarksForLayout)
     {
+        auto pCollectLayoutHint = static_cast<const sw::CollectTextTOXMarksForLayoutHint*>(&rHint);
         if(!GetTextTOXMark())
             return;
         auto& rTextMark = *GetTextTOXMark();

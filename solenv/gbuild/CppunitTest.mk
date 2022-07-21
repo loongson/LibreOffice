@@ -26,10 +26,10 @@ ifneq ($(strip $(CPPUNITTRACE)),)
 ifneq ($(filter gdb,$(CPPUNITTRACE)),)
 # sneak (a) setting the LD_LIBRARY_PATH, and (b) setting malloc debug flags, into the "gdb --args" command line
 gb_CppunitTest_GDBTRACE := $(subst gdb,\
-	PYTHONWARNINGS=default gdb -return-child-result -ex "add-auto-load-safe-path $(INSTDIR)" -ex "set environment $(subst =, ,$(gb_CppunitTest_CPPTESTPRECOMMAND))" $(if $(PYTHONWARNINGS),-ex 'set environment PYTHONWARNINGS $(PYTHONWARNINGS)') $(gb_CppunitTest_malloc_check) $(gb_CppunitTest_DEBUGCPPUNIT),\
+	gdb -return-child-result -ex "add-auto-load-safe-path $(INSTDIR)" -ex "set environment $(subst =, ,$(gb_CppunitTest_CPPTESTPRECOMMAND))" $(if $(PYTHONWARNINGS),-ex 'set environment PYTHONWARNINGS $(PYTHONWARNINGS)') $(gb_CppunitTest_malloc_check) $(gb_CppunitTest_DEBUGCPPUNIT),\
 	$(CPPUNITTRACE))
 gb_PythonTest_GDBTRACE := $(subst gdb,\
-	PYTHONWARNINGS=default gdb -return-child-result -ex "add-auto-load-safe-path $(INSTDIR)" -ex "set environment $(subst =, ,$(gb_PythonTest_PRECOMMAND))" $(if $(PYTHONWARNINGS),-ex 'set environment PYTHONWARNINGS $(PYTHONWARNINGS)') $(gb_CppunitTest_malloc_check) $(gb_CppunitTest_DEBUGCPPUNIT),\
+	gdb -return-child-result -ex "add-auto-load-safe-path $(INSTDIR)" -ex "set environment $(subst =, ,$(gb_PythonTest_PRECOMMAND))" $(if $(PYTHONWARNINGS),-ex 'set environment PYTHONWARNINGS $(PYTHONWARNINGS)') $(gb_CppunitTest_malloc_check) $(gb_CppunitTest_DEBUGCPPUNIT),\
 	$(CPPUNITTRACE))
 else ifneq ($(filter lldb,$(CPPUNITTRACE)),)
 gb_CppunitTest_GDBTRACE := $(subst lldb,\
@@ -137,6 +137,8 @@ else
 		$(if $(GLIBCXX_FORCE_NEW),GLIBCXX_FORCE_NEW=$(GLIBCXX_FORCE_NEW)) \
 		$(if $(strip $(PYTHON_URE)),\
 			PYTHONDONTWRITEBYTECODE=1) \
+		$(if $(filter gdb,$(CPPUNITTRACE)),\
+			PYTHONWARNINGS=default) \
 		$(ICECREAM_RUN) $(gb_CppunitTest_GDBTRACE) $(gb_CppunitTest_VALGRINDTOOL) $(gb_CppunitTest_RR) \
 			$(gb_CppunitTest_CPPTESTCOMMAND) \
 		$(call gb_CppunitTest_get_linktarget_target,$*) \
@@ -354,17 +356,25 @@ $(call gb_CppunitTest__use_configuration,$(1),xcsxcu,$(INSTROOT)/$(LIBO_SHARE_FO
 
 endef
 
-# Use configuration in $(WORKDIR)/unittest/registry.
-define gb_CppunitTest_use_unittest_configuration
+# Use configuration in $(WORKDIR)/unittest/registry-common.
+define gb_CppunitTest_use_common_configuration
 $(call gb_CppunitTest_get_target,$(1)) : $(call gb_Package_get_target,test_unittest)
-$(call gb_CppunitTest__use_configuration,$(1),xcsxcu,$(WORKDIR)/unittest/registry)
+$(call gb_CppunitTest__use_configuration,$(1),xcsxcu,$(WORKDIR)/unittest/registry-common)
 
 endef
 
-# Use standard configuration: instdir config + unittest config (in this order!)
+# Use configuration in $(WORKDIR)/unittest/registry-user-ui
+define gb_CppunitTest_use_user_ui_configuration
+$(call gb_CppunitTest_get_target,$(1)) : $(call gb_Package_get_target,test_unittest)
+$(call gb_CppunitTest__use_configuration,$(1),xcsxcu,$(WORKDIR)/unittest/registry-user-ui)
+
+endef
+
+# Use standard configuration: instdir config + common + user-ui config (in this order!)
 define gb_CppunitTest_use_configuration
 $(call gb_CppunitTest_use_instdir_configuration,$(1))
-$(call gb_CppunitTest_use_unittest_configuration,$(1))
+$(call gb_CppunitTest_use_common_configuration,$(1))
+$(call gb_CppunitTest_use_user_ui_configuration,$(1))
 
 endef
 

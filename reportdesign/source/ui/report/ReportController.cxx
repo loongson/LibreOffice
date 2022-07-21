@@ -2367,7 +2367,6 @@ void OReportController::openPageDialog(const uno::Reference<report::XSection>& _
     >);
     rtl::Reference<SfxItemPool> pPool( new SfxItemPool("ReportPageProperties", RPTUI_ID_LRSPACE, RPTUI_ID_METRIC, aItemInfos ) );
 
-    const Graphic aNullGraphic;
     const ::Color aNullLineCol(COL_DEFAULT_SHAPE_STROKE); // #i121448# Use defined default color
     const ::Color aNullFillCol(COL_DEFAULT_SHAPE_FILLING); // #i121448# Use defined default color
     const XGradient aNullGrad(COL_BLACK, COL_WHITE);
@@ -2387,7 +2386,7 @@ void OReportController::openPageDialog(const uno::Reference<report::XSection>& _
         new XFillColorItem("", aNullFillCol),
         new XFillGradientItem(aNullGrad),
         new XFillHatchItem(aNullHatch),
-        new XFillBitmapItem(aNullGraphic),
+        new XFillBitmapItem(Graphic()),
         new XFillTransparenceItem,
         new XGradientStepCountItem,
         new XFillBmpTileItem,
@@ -3579,7 +3578,7 @@ void OReportController::addPairControls(const Sequence< PropertyValue >& aArgs)
                                 if ( bOverlapping )
                                 {
                                     const tools::Rectangle& aLogicRect = pOverlappedObj->GetLogicRect();
-                                    aLabelAndTextfield.Move(0,aLogicRect.Top() + aLogicRect.getHeight() - aLabelAndTextfield.Top());
+                                    aLabelAndTextfield.Move(0,aLogicRect.Top() + aLogicRect.getOpenHeight() - aLabelAndTextfield.Top());
                                     bHasToMove = true;
                                 }
                             }

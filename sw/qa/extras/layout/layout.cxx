@@ -1244,16 +1244,15 @@ CPPUNIT_TEST_FIXTURE(SwLayoutWriter, TestTdf137025)
     // Check the textbox as well:
     auto xTxFrm = SwXTextFrame::CreateXTextFrame(*pFrameFormat->GetDoc(), pFrameFormat);
     CPPUNIT_ASSERT(xTxFrm);
-    uno::Reference<beans::XPropertySet> xFrameProps(xTxFrm, uno::UNO_QUERY);
 
     const tools::Long nFrameLeftPaddng
-        = xFrameProps->getPropertyValue("LeftBorderDistance").get<tools::Long>();
+        = xTxFrm->getPropertyValue("LeftBorderDistance").get<tools::Long>();
     const tools::Long nFrameRightPaddng
-        = xFrameProps->getPropertyValue("RightBorderDistance").get<tools::Long>();
+        = xTxFrm->getPropertyValue("RightBorderDistance").get<tools::Long>();
     const tools::Long nFrameTopPaddng
-        = xFrameProps->getPropertyValue("TopBorderDistance").get<tools::Long>();
+        = xTxFrm->getPropertyValue("TopBorderDistance").get<tools::Long>();
     const tools::Long nFrameBottomPaddng
-        = xFrameProps->getPropertyValue("BottomBorderDistance").get<tools::Long>();
+        = xTxFrm->getPropertyValue("BottomBorderDistance").get<tools::Long>();
 
     // Check if the shape and frame have different setting
     CPPUNIT_ASSERT_EQUAL(nLPaddng, nFrameLeftPaddng);
@@ -3487,11 +3486,16 @@ CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testForcepoint103)
     createSwWebDoc(DATA_DIRECTORY, "forcepoint103.html");
 }
 
+// FIXME: The font substitution of the bugdoc causes crash in Linux builds,
+// in addition this example file originally was a docx so check system type
+// until that issue is not fixed:
+#ifndef SAL_UNX
 //just care it doesn't crash/assert
 CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf147485Forcepoint)
 {
     createSwDoc(DATA_DIRECTORY, "tdf147485-forcepoint.doc");
 }
+#endif
 
 CPPUNIT_TEST_FIXTURE(SwLayoutWriter, testTdf118058)
 {

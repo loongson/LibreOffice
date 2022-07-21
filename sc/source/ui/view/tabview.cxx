@@ -959,12 +959,12 @@ bool ScTabView::ScrollCommand( const CommandEvent& rCEvt, ScSplitPos ePos )
             //  and can't be changed directly
 
             const Fraction& rOldY = aViewData.GetZoomY();
-            tools::Long nOld = static_cast<tools::Long>( rOldY * 100 );
-            tools::Long nNew;
+            sal_uInt16 nOld = static_cast<tools::Long>( rOldY * 100 );
+            sal_uInt16 nNew;
             if ( pData->GetDelta() < 0 )
-                nNew = std::max( tools::Long(MINZOOM), basegfx::zoomtools::zoomOut( nOld ));
+                nNew = std::max( MINZOOM, basegfx::zoomtools::zoomOut( nOld ));
             else
-                nNew = std::min( tools::Long(MAXZOOM), basegfx::zoomtools::zoomIn( nOld ));
+                nNew = std::min( MAXZOOM, basegfx::zoomtools::zoomIn( nOld ));
             if ( nNew != nOld )
             {
                 // scroll wheel doesn't set the AppOptions default
@@ -2594,7 +2594,7 @@ void lcl_ExtendTiledDimension(bool bColumn, const SCCOLROW nEnd, const SCCOLROW 
         tools::Rectangle(0, aOldSize.getHeight(), aNewSize.getWidth(), aNewSize.getHeight());
 
     // Only invalidate if spreadsheet has extended to the right or bottom
-    if ((bColumn && aNewArea.getWidth()) || (!bColumn && aNewArea.getHeight()))
+    if ((bColumn && aNewArea.getOpenWidth()) || (!bColumn && aNewArea.getOpenHeight()))
     {
         rTabView.UpdateSelectionOverlay();
         SfxLokHelper::notifyInvalidation(rViewData.GetViewShell(), &aNewArea);

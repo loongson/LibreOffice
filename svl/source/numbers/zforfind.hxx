@@ -338,7 +338,8 @@ private:
 
     // Analyze middle substring
     bool ScanMidString( const OUString& rString,
-                        sal_uInt16 nStringPos );
+                        sal_uInt16 nStringPos,
+                        sal_uInt16 nCurNumCount );
 
 
     // Analyze end of string
@@ -427,6 +428,13 @@ private:
         NfEvalDateFormat setting.
      */
     bool IsAcceptableIso8601();
+
+    /** If month name in the middle was parsed, get the corresponding
+        LongDateOrder in GetDateRef().
+     */
+    LongDateOrder GetMiddleMonthLongDateOrder( bool bFormatTurn,
+                                               const LocaleDataWrapper* pLoc,
+                                               DateOrder eDateOrder );
 };
 
 #endif // INCLUDED_SVL_SOURCE_NUMBERS_ZFORFIND_HXX

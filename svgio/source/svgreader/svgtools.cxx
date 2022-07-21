@@ -640,7 +640,7 @@ namespace svgio::svgreader
                 { ColorTokenValueType(OUString("yellowgreen"), Color(154, 205, 50) ) },
             };
 
-            ColorTokenMapper::const_iterator aResult(aColorTokenMapperList.find(rName.toAsciiLowerCase()));
+            ColorTokenMapper::const_iterator aResult(aColorTokenMapperList.find(rName.toAsciiLowerCase().trim()));
 
             if(aResult == aColorTokenMapperList.end())
             {
@@ -869,7 +869,7 @@ namespace svgio::svgreader
                     {
                         case u'm' :
                         {
-                            if(rCandidate.match(aStrMatrix, nPos))
+                            if(rCandidate.matchIgnoreAsciiCase(aStrMatrix, nPos))
                             {
                                 // matrix element
                                 nPos += strlen(aStrMatrix);
@@ -923,7 +923,7 @@ namespace svgio::svgreader
                         }
                         case u't' :
                         {
-                            if(rCandidate.match(aStrTranslate, nPos))
+                            if(rCandidate.matchIgnoreAsciiCase(aStrTranslate, nPos))
                             {
                                 // translate element
                                 nPos += strlen(aStrTranslate);
@@ -947,7 +947,7 @@ namespace svgio::svgreader
                         }
                         case u's' :
                         {
-                            if(rCandidate.match(aStrScale, nPos))
+                            if(rCandidate.matchIgnoreAsciiCase(aStrScale, nPos))
                             {
                                 // scale element
                                 nPos += strlen(aStrScale);
@@ -967,7 +967,7 @@ namespace svgio::svgreader
                                         aScaleY.solve(rInfoProvider));
                                 }
                             }
-                            else if(rCandidate.match(aStrSkewX, nPos))
+                            else if(rCandidate.matchIgnoreAsciiCase(aStrSkewX, nPos))
                             {
                                 // skewx element
                                 nPos += strlen(aStrSkewX);
@@ -982,7 +982,7 @@ namespace svgio::svgreader
                                     aMatrix = aMatrix * basegfx::utils::createShearXB2DHomMatrix(tan(fSkewX));
                                 }
                             }
-                            else if(rCandidate.match(aStrSkewY, nPos))
+                            else if(rCandidate.matchIgnoreAsciiCase(aStrSkewY, nPos))
                             {
                                 // skewy element
                                 nPos += strlen(aStrSkewY);
@@ -1001,7 +1001,7 @@ namespace svgio::svgreader
                         }
                         case u'r' :
                         {
-                            if(rCandidate.match(aStrRotate, nPos))
+                            if(rCandidate.matchIgnoreAsciiCase(aStrRotate, nPos))
                             {
                                 // rotate element
                                 nPos += strlen(aStrRotate);
@@ -1057,6 +1057,24 @@ namespace svgio::svgreader
             return readNumberAndUnit(rCandidate, nPos, aNum, nLen);
         }
 
+        bool readLocalLink(const OUString& rCandidate, OUString& rURL)
+        {
+            sal_Int32 nPos(0);
+            const sal_Int32 nLen(rCandidate.getLength());
+
+            skip_char(rCandidate, ' ', nPos, nLen);
+
+            if (nLen && nPos < nLen && '#' == rCandidate[nPos])
+            {
+                ++nPos;
+                rURL = rCandidate.copy(nPos);
+
+                return true;
+            }
+
+            return false;
+        }
+
         bool readLocalUrl(const OUString& rCandidate, OUString& rURL)
         {
             static const char aStrUrl[] = "url(";
@@ -1108,7 +1126,7 @@ namespace svgio::svgreader
                 }
                 else
                 {
-                    if(rCandidate.startsWith("none"))
+                    if(o3tl::equalsIgnoreAsciiCase(o3tl::trim(rCandidate), u"none"))
                     {
                         rSvgPaint = SvgPaint(aColor, true, false, false);
                         return true;
@@ -1118,7 +1136,7 @@ namespace svgio::svgreader
                         /// Url is copied to rURL, but needs to be solved outside this helper
                         return false;
                     }
-                    else if(rCandidate.startsWith("currentColor"))
+                    else if(o3tl::equalsIgnoreAsciiCase(o3tl::trim(rCandidate), u"currentColor"))
                     {
                         rSvgPaint = SvgPaint(aColor, true, true, true);
                         return true;
@@ -1308,16 +1326,11 @@ namespace svgio::svgreader
             rMimeType.clear();
             rData.clear();
 
-            if('#' == rCandidate[0])
-            {
-                // local link
-                rXLink = rCandidate.copy(1);
-            }
-            else
+            if(!readLocalLink(rCandidate, rXLink))
             {
                 static const char aStrData[] = "data:";
 
-                if(rCandidate.match(aStrData, 0))
+                if(rCandidate.matchIgnoreAsciiCase(aStrData, 0))
                 {
                     // embedded data
                     sal_Int32 nPos(strlen(aStrData));

@@ -617,7 +617,6 @@ bool openCharDialog( const uno::Reference<report::XReportControlFormat >& _rxRep
     };
     FontList aFontList(Application::GetDefaultDevice());
     XColorListRef pColorList( XColorList::CreateStdColorList() );
-    const Graphic aNullGraphic;
     const ::Color aNullLineCol(COL_DEFAULT_SHAPE_STROKE); // #i121448# Use defined default color
     const ::Color aNullFillCol(COL_DEFAULT_SHAPE_FILLING); // #i121448# Use defined default color
     const XGradient aNullGrad(COL_BLACK, COL_WHITE);
@@ -628,7 +627,7 @@ bool openCharDialog( const uno::Reference<report::XReportControlFormat >& _rxRep
         new XFillColorItem("", aNullFillCol),
         new XFillGradientItem(aNullGrad),
         new XFillHatchItem(aNullHatch),
-        new XFillBitmapItem(aNullGraphic),
+        new XFillBitmapItem(Graphic()),
         new XFillTransparenceItem,
         new XGradientStepCountItem,
         new XFillBmpTileItem,
@@ -957,8 +956,8 @@ tools::Rectangle getRectangleFromControl(SdrObject* _pControl)
         if (xComponent.is())
         {
             tools::Rectangle aRect(VCLPoint(xComponent->getPosition()),VCLSize(xComponent->getSize()));
-            aRect.setHeight(aRect.getHeight() + 1);
-            aRect.setWidth(aRect.getWidth() + 1);
+            aRect.setHeight(aRect.getOpenHeight() + 1);
+            aRect.setWidth(aRect.getOpenWidth() + 1);
             return aRect;
         }
     }
@@ -980,7 +979,7 @@ void correctOverlapping(SdrObject* _pControl,OReportSection const & _aReportSect
         if ( bOverlapping )
         {
             const tools::Rectangle& aLogicRect = pOverlappedObj->GetLogicRect();
-            aRect.Move(0,aLogicRect.Top() + aLogicRect.getHeight() - aRect.Top());
+            aRect.Move(0,aLogicRect.Top() + aLogicRect.getOpenHeight() - aRect.Top());
             xComponent->setPositionY(aRect.Top());
         }
     }

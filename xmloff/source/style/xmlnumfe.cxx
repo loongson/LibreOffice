@@ -38,6 +38,7 @@
 
 #include <com/sun/star/i18n/NativeNumberXmlAttributes2.hpp>
 
+#include <utility>
 #include <xmloff/xmlnumfe.hxx>
 #include <xmloff/xmlnamespace.hxx>
 #include <xmloff/xmlnumfi.hxx>
@@ -66,8 +67,8 @@ struct SvXMLEmbeddedTextEntry
     sal_Int32       nFormatPos;     // resulting position in embedded-text element
     OUString   aText;
 
-    SvXMLEmbeddedTextEntry( sal_uInt16 nSP, sal_Int32 nFP, const OUString& rT ) :
-        nSourcePos(nSP), nFormatPos(nFP), aText(rT) {}
+    SvXMLEmbeddedTextEntry( sal_uInt16 nSP, sal_Int32 nFP, OUString aT ) :
+        nSourcePos(nSP), nFormatPos(nFP), aText(std::move(aT)) {}
 };
 
 }
@@ -238,9 +239,9 @@ SvXMLNumFmtExport::SvXMLNumFmtExport(
 SvXMLNumFmtExport::SvXMLNumFmtExport(
                        SvXMLExport& rExp,
                        const css::uno::Reference< css::util::XNumberFormatsSupplier >& rSupp,
-                       const OUString& rPrefix ) :
+                       OUString aPrefix ) :
     rExport( rExp ),
-    sPrefix( rPrefix ),
+    sPrefix(std::move( aPrefix )),
     pFormatter( nullptr ),
     bHasText( false )
 {
@@ -602,6 +603,8 @@ void SvXMLNumFmtExport::WriteNumberElement_Impl(
         const SvXMLEmbeddedTextEntry *const pObj = &rEmbeddedEntries[nEntry];
 
         //  position attribute
+        // position == 0 is between first integer digit and decimal separator
+        // position < 0 is inside decimal part
         rExport.AddAttribute( XML_NAMESPACE_NUMBER, XML_POSITION,
                                 OUString::number( pObj->nFormatPos ) );
         SvXMLElementExport aChildElem( rExport, XML_NAMESPACE_NUMBER, XML_EMBEDDED_TEXT,
@@ -1388,6 +1391,10 @@ void SvXMLNumFmtExport::ExportPart_Impl( const SvNumberformat& rFormat, sal_uInt
         if ( bAllowEmbedded )
         {
             sal_Int32 nDigitsPassed = 0;
+            sal_Int32 nEmbeddedPositionsMax = nIntegerSymbols;
+            // Enable embedded text in decimal part only if there's a decimal part
+            if ( nPrecision )
+                nEmbeddedPositionsMax += nPrecision + 1;
             nPos = 0;
             bEnd = false;
             while (!bEnd)
@@ -1404,12 +1411,15 @@ void SvXMLNumFmtExport::ExportPart_Impl( const SvNumberformat& rFormat, sal_uInt
                         if ( pElemStr )
                             nDigitsPassed += pElemStr->getLength();
                         break;
+                    case NF_SYMBOLTYPE_DECSEP:
+                        nDigitsPassed++;
+                        break;
                     case NF_SYMBOLTYPE_STRING:
                     case NF_SYMBOLTYPE_BLANK:
                     case NF_SYMBOLTYPE_PERCENT:
-                        if ( nDigitsPassed > 0 && nDigitsPassed < nIntegerSymbols && pElemStr )
+                        if ( 0 < nDigitsPassed && nDigitsPassed < nEmbeddedPositionsMax && pElemStr )
                         {
-                            //  text (literal or underscore) within the integer part of a number:number element
+                            //  text (literal or underscore) within the integer (>=0) or decimal (<0) part of a number:number element
 
                             OUString aEmbeddedStr;
                             if ( nElemType == NF_SYMBOLTYPE_STRING || nElemType == NF_SYMBOLTYPE_PERCENT )

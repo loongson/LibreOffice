@@ -25,6 +25,7 @@
 #include <com/sun/star/lang/DisposedException.hpp>
 #include <com/sun/star/util/URLTransformer.hpp>
 
+#include <utility>
 #include <vcl/svapp.hxx>
 #include <osl/mutex.hxx>
 #include <cppuhelper/supportsservice.hxx>
@@ -47,8 +48,8 @@ struct PopupMenuControllerBaseDispatchInfo
     const URL maURL;
     const Sequence< PropertyValue > maArgs;
 
-    PopupMenuControllerBaseDispatchInfo( const Reference< XDispatch >& xDispatch, const URL& rURL, const Sequence< PropertyValue >& rArgs )
-        : mxDispatch( xDispatch ), maURL( rURL ), maArgs( rArgs ) {}
+    PopupMenuControllerBaseDispatchInfo( const Reference< XDispatch >& xDispatch, URL aURL, const Sequence< PropertyValue >& rArgs )
+        : mxDispatch( xDispatch ), maURL(std::move( aURL )), maArgs( rArgs ) {}
 };
 
 }
@@ -141,7 +142,7 @@ void PopupMenuControllerBase::dispatchCommand( const OUString& sCommandURL,
 
         Reference< XDispatch > xDispatch( xDispatchProvider->queryDispatch( aURL, sTarget, 0 ), UNO_SET_THROW );
 
-        Application::PostUserEvent( LINK(nullptr, PopupMenuControllerBase, ExecuteHdl_Impl), new PopupMenuControllerBaseDispatchInfo( xDispatch, aURL, rArgs ) );
+        Application::PostUserEvent( LINK(nullptr, PopupMenuControllerBase, ExecuteHdl_Impl), new PopupMenuControllerBaseDispatchInfo( xDispatch, std::move(aURL), rArgs ) );
 
     }
     catch( Exception& )

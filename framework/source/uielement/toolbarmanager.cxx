@@ -59,7 +59,7 @@
 #include <toolkit/helper/vclunohelper.hxx>
 #include <unotools/mediadescriptor.hxx>
 #include <comphelper/propertyvalue.hxx>
-#include <comphelper/sequence.hxx>
+#include <comphelper/propertysequence.hxx>
 #include <svtools/miscopt.hxx>
 #include <svtools/imgdef.hxx>
 #include <utility>
@@ -200,19 +200,6 @@ public:
         return VCLUnoHelper::GetInterface(m_pToolBar);
     }
 
-    virtual css::uno::Reference<css::frame::XStatusListener> CreateToolBoxController(
-        const css::uno::Reference<css::frame::XFrame>& rFrame,
-        ToolBoxItemId nId,
-        const OUString& rCommandURL ) override
-    {
-        rtl::Reference<svt::ToolboxController> pController
-            = ::framework::CreateToolBoxController( rFrame, m_pToolBar, nId, rCommandURL );
-        css::uno::Reference<css::frame::XStatusListener> xListener;
-        if (pController)
-            xListener = pController;
-        return xListener;
-    }
-
     virtual void ConnectCallbacks(ToolBarManager* pManager) override
     {
         m_pManager = pManager;
@@ -306,6 +293,11 @@ public:
     virtual void SetHelpId(const OString& rHelpId) override
     {
         m_pToolBar->SetHelpId( rHelpId );
+    }
+
+    virtual void TrackImageOrientation(const css::uno::Reference<css::frame::XFrame>& rFrame) override
+    {
+        m_pToolBar->TrackImageOrientation(rFrame);
     }
 
     virtual bool WillUsePopupMode() override
@@ -417,20 +409,7 @@ public:
 
     virtual css::uno::Reference<css::awt::XWindow> GetInterface() override
     {
-        return new weld::TransportAsXWindow(m_pWeldedToolBar);
-    }
-
-    virtual css::uno::Reference<css::frame::XStatusListener> CreateToolBoxController(
-        const css::uno::Reference<css::frame::XFrame>& rFrame,
-        ToolBoxItemId /*nId*/,
-        const OUString& rCommandURL ) override
-    {
-        css::uno::Reference<css::frame::XToolbarController> xController
-            = ::framework::CreateWeldToolBoxController(rFrame, m_pWeldedToolBar, m_pBuilder, rCommandURL);
-        css::uno::Reference<css::frame::XStatusListener> xListener;
-        if (xController.is())
-            xListener = css::uno::Reference<css::frame::XStatusListener>( xController, UNO_QUERY );
-        return xListener;
+        return new weld::TransportAsXWindow(m_pWeldedToolBar, m_pBuilder);
     }
 
     virtual void ConnectCallbacks(ToolBarManager* pManager) override
@@ -508,6 +487,8 @@ public:
 
     virtual void SetHelpId(const OString& /*rHelpId*/) override {}
 
+    virtual void TrackImageOrientation(const css::uno::Reference<css::frame::XFrame>&) override {}
+
     virtual bool WillUsePopupMode() override { return true; }
 
     virtual bool IsReallyVisible() override { return true; }
@@ -576,6 +557,7 @@ ToolBarManager::ToolBarManager( const Reference< XComponentContext >& rxContext,
     m_nContextMinPos(0),
     m_pImpl( new VclToolBarManager( pToolBar ) ),
     m_pToolBar( pToolBar ),
+    m_pWeldedToolBar( nullptr ),
     m_aResourceName(std::move( aResourceName )),
     m_xFrame( rFrame ),
     m_xContext( rxContext ),
@@ -596,7 +578,7 @@ ToolBarManager::ToolBarManager( const Reference< XComponentContext >& rxContext,
     m_eSymbolSize( SvtMiscOptions().GetCurrentSymbolsSize() ),
     m_nContextMinPos(0),
     m_pImpl( new WeldToolBarManager( pToolBar, pBuilder ) ),
-    m_pToolBar( nullptr ),
+    m_pWeldedToolBar( pToolBar ),
     m_aResourceName(std::move( aResourceName )),
     m_xFrame( rFrame ),
     m_xContext( rxContext ),
@@ -1072,8 +1054,6 @@ void ToolBarManager::CreateControllers()
         bool                     bCreate( true );
         Reference< XStatusListener > xController;
 
-        rtl::Reference<svt::ToolboxController> pController;
-
         OUString aCommandURL( m_pImpl->GetItemCommand( nId ) );
         // Command can be just an alias to another command.
         auto aProperties = vcl::CommandInfoProvider::GetCommandProperties(aCommandURL, m_aModuleIdentifier);
@@ -1096,27 +1076,14 @@ void ToolBarManager::CreateControllers()
         if ( m_xToolbarControllerFactory.is() &&
              m_xToolbarControllerFactory->hasController( aCommandURL, m_aModuleIdentifier ))
         {
-            PropertyValue aPropValue;
-            std::vector< Any > aPropertyVector;
-
-            aPropValue.Name     = "ModuleIdentifier";
-            aPropValue.Value    <<= m_aModuleIdentifier;
-            aPropertyVector.push_back( Any( aPropValue ));
-            aPropValue.Name     = "Frame";
-            aPropValue.Value    <<= m_xFrame;
-            aPropertyVector.push_back( Any( aPropValue ));
-            aPropValue.Name     = "ServiceManager";
             Reference<XMultiServiceFactory> xMSF(m_xContext->getServiceManager(), UNO_QUERY_THROW);
-            aPropValue.Value    <<= xMSF;
-            aPropertyVector.push_back( Any( aPropValue ));
-            aPropValue.Name     = "ParentWindow";
-            aPropValue.Value    <<= xToolbarWindow;
-            aPropertyVector.push_back( Any( aPropValue ));
-            aPropValue.Name     = "Identifier";
-            aPropValue.Value    <<= sal_uInt16(nId);
-            aPropertyVector.push_back( uno::Any( aPropValue ) );
-
-            Sequence< Any > aArgs( comphelper::containerToSequence( aPropertyVector ));
+            Sequence< Any > aArgs( comphelper::InitAnyPropertySequence( {
+                { "ModuleIdentifier", Any(m_aModuleIdentifier) },
+                { "Frame", Any(m_xFrame) },
+                { "ServiceManager", Any(xMSF) },
+                { "ParentWindow", Any(xToolbarWindow) },
+                { "Identifier", Any(sal_uInt16(nId)) },
+            } ));
             xController.set( m_xToolbarControllerFactory->createInstanceWithArgumentsAndContext( aCommandURL, aArgs, m_xContext ),
                              UNO_QUERY );
             bInit = false; // Initialization is done through the factory service
@@ -1127,7 +1094,8 @@ void ToolBarManager::CreateControllers()
 
         if ( !xController.is() && bCreate )
         {
-            xController = m_pImpl->CreateToolBoxController( m_xFrame, nId, aCommandURL );
+            if ( m_pToolBar )
+                xController = CreateToolBoxController( m_xFrame, m_pToolBar, nId, aCommandURL );
             if ( !xController )
             {
                 if ( aCommandURL.startsWith( ".uno:StyleApply?" ) )
@@ -1157,10 +1125,12 @@ void ToolBarManager::CreateControllers()
 
                     xController = xStatusListener;
                 }
-                else if (m_pToolBar)
+                else
                 {
-                    xController.set(
-                        new GenericToolbarController( m_xContext, m_xFrame, m_pToolBar, nId, aCommandURL ));
+                    if ( m_pToolBar )
+                        xController.set( new GenericToolbarController( m_xContext, m_xFrame, m_pToolBar, nId, aCommandURL ));
+                    else
+                        xController.set( new GenericToolbarController( m_xContext, m_xFrame, *m_pWeldedToolBar, aCommandURL ));
 
                     // Accessibility support: Set toggle button role for specific commands
                     sal_Int32 nProps = vcl::CommandInfoProvider::GetPropertiesForCommand(aCommandURL, m_aModuleIdentifier);
@@ -1201,22 +1171,16 @@ void ToolBarManager::CreateControllers()
             if ( bInit )
             {
                 Reference<XMultiServiceFactory> xMSF(m_xContext->getServiceManager(), UNO_QUERY_THROW);
-                Sequence< Any > aArgs {
-                    Any( comphelper::makePropertyValue("Frame", m_xFrame) ),
-                    Any( comphelper::makePropertyValue("CommandURL", aCommandURL) ),
-                    Any( comphelper::makePropertyValue("ServiceManager", xMSF) ),
-                    Any( comphelper::makePropertyValue("ParentWindow", xToolbarWindow) ),
-                    Any( comphelper::makePropertyValue("ModuleIdentifier", m_aModuleIdentifier) ),
-                    Any( comphelper::makePropertyValue("Identifier", sal_uInt16(nId)) ),
-                };
+                Sequence< Any > aArgs( comphelper::InitAnyPropertySequence( {
+                    { "Frame", Any(m_xFrame) },
+                    { "CommandURL", Any(aCommandURL) },
+                    { "ServiceManager", Any(xMSF) },
+                    { "ParentWindow", Any(xToolbarWindow) },
+                    { "ModuleIdentifier", Any(m_aModuleIdentifier) },
+                    { "Identifier", Any(sal_uInt16(nId)) },
+                } ));
 
                 xInit->initialize( aArgs );
-
-                if (pController)
-                {
-                    if (aCommandURL == ".uno:SwitchXFormsDesignMode" || aCommandURL == ".uno:ViewDataSourceBrowser")
-                        pController->setFastPropertyValue_NoBroadcast(1, Any(true));
-                }
             }
 
             // Request an item window from the toolbar controller and set it at the VCL toolbar
@@ -1712,6 +1676,8 @@ void ToolBarManager::RequestImages()
         ++pIter;
         ++i;
     }
+
+    m_pImpl->TrackImageOrientation(m_xFrame);
 }
 
 void ToolBarManager::notifyRegisteredControllers( const OUString& aUIElementName, const OUString& aCommand )

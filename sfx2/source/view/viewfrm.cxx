@@ -269,6 +269,11 @@ bool AskPasswordToModify_Impl( const uno::Reference< task::XInteractionHandler >
 
     return bResult;
 }
+
+bool physObjIsOlder(INetURLObject const & aMedObj, INetURLObject const & aPhysObj) {
+    return ::utl::UCBContentHelper::IsYounger(aMedObj.GetMainURL( INetURLObject::DecodeMechanism::NONE),
+                                           aPhysObj.GetMainURL( INetURLObject::DecodeMechanism::NONE ) );
+}
 }
 
 void SfxViewFrame::ExecReload_Impl( SfxRequest& rReq )
@@ -437,8 +442,6 @@ void SfxViewFrame::ExecReload_Impl( SfxRequest& rReq )
             // etag tells that the cache representation (e.g. in LO) is different from the one on the server,
             // but tells nothing about the age
             // Details at this link: http://tools.ietf.org/html/rfc4918#section-15, section 15.7
-            bool const bPhysObjIsOlder = ::utl::UCBContentHelper::IsYounger(aMedObj.GetMainURL( INetURLObject::DecodeMechanism::NONE),
-                                                                         aPhysObj.GetMainURL( INetURLObject::DecodeMechanism::NONE ) );
             bool bIsWebDAV = aMedObj.isAnyKnownWebDAVScheme();
 
             // tdf#118938 Reload the document when the user enters the editing password,
@@ -446,8 +449,8 @@ void SfxViewFrame::ExecReload_Impl( SfxRequest& rReq )
             if ( ( !bNeedsReload && ( ( aMedObj.GetProtocol() == INetProtocol::File &&
                                         ( aMedObj.getFSysPath( FSysStyle::Detect ) != aPhysObj.getFSysPath( FSysStyle::Detect )
                                           || bPasswordEntered ) &&
-                                        !bPhysObjIsOlder)
-                                      || (bIsWebDAV && !bPhysObjIsOlder)
+                                        !physObjIsOlder(aMedObj, aPhysObj))
+                                      || (bIsWebDAV && !physObjIsOlder(aMedObj, aPhysObj))
                                       || ( pMed->IsRemote() && !bIsWebDAV ) ) )
                  || pVersionItem )
             // <- tdf#82744
@@ -762,9 +765,6 @@ void SfxViewFrame::ExecReload_Impl( SfxRequest& rReq )
                 // Do not cache the old Document! Is invalid when loading
                 // another document.
 
-                const SfxStringItem* pSavedOptions = SfxItemSet::GetItem<SfxStringItem>(pMedium->GetItemSet(), SID_FILE_FILTEROPTIONS, false);
-                const SfxStringItem* pSavedReferer = SfxItemSet::GetItem<SfxStringItem>(pMedium->GetItemSet(), SID_REFERER, false);
-
                 bool bHasStorage = pMedium->HasStorage_Impl();
                 if( bHandsOff )
                 {
@@ -808,29 +808,6 @@ void SfxViewFrame::ExecReload_Impl( SfxRequest& rReq )
                         pMedium->LockOrigFileOnDemand( false, true );
 
                         xOldObj->DoSaveCompleted( pMedium );
-                    }
-
-                    // r/o-Doc couldn't be switched to writing mode
-                    if ( bForEdit && ( SID_EDITDOC == rReq.GetSlot() || SID_READONLYDOC == rReq.GetSlot() ) )
-                    {
-                        // ask user for opening as template
-                        std::unique_ptr<weld::MessageDialog> xBox(Application::CreateMessageDialog(GetWindow().GetFrameWeld(),
-                                                                                 VclMessageType::Question, VclButtonsType::YesNo,
-                                                                                 SfxResId(STR_QUERY_OPENASTEMPLATE)));
-                        if (RET_YES == xBox->run())
-                        {
-                            SfxAllItemSet aSet( pApp->GetPool() );
-                            aSet.Put( SfxStringItem( SID_FILE_NAME, pMedium->GetName() ) );
-                            aSet.Put( SfxStringItem( SID_TARGETNAME, "_blank" ) );
-                            if ( pSavedOptions )
-                                aSet.Put( *pSavedOptions );
-                            if ( pSavedReferer )
-                                aSet.Put( *pSavedReferer );
-                            aSet.Put( SfxBoolItem( SID_TEMPLATE, true ) );
-                            if( pFilter )
-                                aSet.Put( SfxStringItem( SID_FILTER_NAME, pFilter->GetFilterName() ) );
-                            GetDispatcher()->Execute( SID_OPENDOC, SfxCallMode::ASYNCHRON, aSet );
-                        }
                     }
                 }
                 else
@@ -1534,27 +1511,41 @@ void SfxViewFrame::Notify( SfxBroadcaster& /*rBC*/, const SfxHint& rHint )
                         }
                     }
 
-                    VclPtr<SfxInfoBarWindow> pInfoBar =
-                        AppendInfoBar(aInfobarData.msId, aInfobarData.msPrimaryMessage,
+                    // Track Changes infobar: add a button to show/hide Track Changes functions
+                    // Hyphenation infobar: add a button to get more information
+                    // tdf#148913 limit VclPtr usage for these
+                    bool bTrackChanges = aInfobarData.msId == "hiddentrackchanges";
+                    if ( bTrackChanges || aInfobarData.msId == "hyphenationmissing" )
+                    {
+                        VclPtr<SfxInfoBarWindow> pInfoBar =
+                            AppendInfoBar(aInfobarData.msId, aInfobarData.msPrimaryMessage,
                                   aInfobarData.msSecondaryMessage, aInfobarData.maInfobarType,
                                   aInfobarData.mbShowCloseButton);
 
-                    // Track Changes infobar: add a button to show/hide Track Changes functions
-                    if ( pInfoBar && aInfobarData.msId == "hiddentrackchanges" )
-                    {
-                        weld::Button& rTrackChangesButton = pInfoBar->addButton();
-                        rTrackChangesButton.set_label(SfxResId(STR_TRACK_CHANGES_BUTTON));
-                        rTrackChangesButton.connect_clicked(LINK(this,
+                        // tdf#148913 don't extend this condition to keep it thread-safe
+                        if (pInfoBar)
+                        {
+                            weld::Button& rButton = pInfoBar->addButton();
+                            rButton.set_label(SfxResId(bTrackChanges
+                                    ? STR_TRACK_CHANGES_BUTTON
+                                    : STR_HYPHENATION_BUTTON));
+                            if (bTrackChanges)
+                            {
+                                rButton.connect_clicked(LINK(this,
                                                     SfxViewFrame, HiddenTrackChangesHandler));
+                            }
+                            else
+                            {
+                                rButton.connect_clicked(LINK(this,
+                                                    SfxViewFrame, HyphenationMissingHandler));
+                            }
+                        }
                     }
-
-                    // Hyphenation infobar: add a button to get more information
-                    if ( pInfoBar && aInfobarData.msId == "hyphenationmissing" )
+                    else
                     {
-                        weld::Button& rHyphenationButton = pInfoBar->addButton();
-                        rHyphenationButton.set_label(SfxResId(STR_HYPHENATION_BUTTON));
-                        rHyphenationButton.connect_clicked(LINK(this,
-                                                   SfxViewFrame, HyphenationMissingHandler));
+                        AppendInfoBar(aInfobarData.msId, aInfobarData.msPrimaryMessage,
+                                  aInfobarData.msSecondaryMessage, aInfobarData.maInfobarType,
+                                  aInfobarData.mbShowCloseButton);
                     }
 
                     aPendingInfobars.pop_back();

@@ -116,12 +116,12 @@ void Button::dispose()
     Control::dispose();
 }
 
-void Button::SetCommandHandler(const OUString& aCommand)
+void Button::SetCommandHandler(const OUString& aCommand, const css::uno::Reference<css::frame::XFrame>& rFrame)
 {
     maCommand = aCommand;
     SetClickHdl( LINK( this, Button, dispatchCommandHandler) );
 
-    mpButtonData->mpStatusListener = new VclStatusListener<Button>(this, aCommand);
+    mpButtonData->mpStatusListener = new VclStatusListener<Button>(this, rFrame, aCommand);
     mpButtonData->mpStatusListener->startListening();
 }
 
@@ -242,7 +242,7 @@ void Button::ImplDrawAlignedImage(OutputDevice* pDev, Point& rPos,
         // If the button text doesn't fit into it, put it into a tooltip (might happen in sidebar)
         if (GetQuickHelpText()!= aText && mpButtonData->mbGeneratedTooltip)
             SetQuickHelpText("");
-        if (GetQuickHelpText().isEmpty() && textRect.getWidth() > rSize.getWidth())
+        if (GetQuickHelpText().isEmpty() && textRect.getOpenWidth() > rSize.getWidth())
         {
             SetQuickHelpText(aText);
             mpButtonData->mbGeneratedTooltip = true;

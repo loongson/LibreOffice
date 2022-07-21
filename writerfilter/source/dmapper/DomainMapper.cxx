@@ -1369,7 +1369,7 @@ void DomainMapper::sprmWithProps( Sprm& rSprm, const PropertyMapPtr& rContext )
     {
     case NS_ooxml::LN_CT_PPrBase_jc:
     {
-        bool bExchangeLeftRight = !IsRTFImport() && ExchangeLeftRight(rContext, *m_pImpl);
+        bool bExchangeLeftRight = !IsRTFImport() && !m_pImpl->IsInComments() && ExchangeLeftRight(rContext, *m_pImpl);
         handleParaJustification(nIntValue, rContext, bExchangeLeftRight);
         break;
     }
@@ -1667,7 +1667,7 @@ void DomainMapper::sprmWithProps( Sprm& rSprm, const PropertyMapPtr& rContext )
             m_pImpl->GetPropertyFromParaStyleSheet(PROP_WRITING_MODE) >>= nParentBidi;
             // Paragraph justification reverses its meaning in an RTL context.
             // 1. Only make adjustments if the BiDi changes.
-            if ( nParentBidi != nWritingMode && !IsRTFImport() )
+            if (nParentBidi != nWritingMode && !IsRTFImport() && !m_pImpl->IsInComments())
             {
                 style::ParagraphAdjust eAdjust = style::ParagraphAdjust(-1);
                 // 2. no adjust property exists yet
@@ -1714,17 +1714,19 @@ void DomainMapper::sprmWithProps( Sprm& rSprm, const PropertyMapPtr& rContext )
                     break;
             }
 
+            PropertyIds ePropertyId = m_pImpl->IsInComments() ? PROP_CHAR_BACK_COLOR : PROP_CHAR_HIGHLIGHT;
+
             // OOXML import uses an ID
             if( IsOOXMLImport() )
             {
                 sal_Int32 nColor = 0;
                 if( getColorFromId(nIntValue, nColor) )
-                    rContext->Insert(PROP_CHAR_HIGHLIGHT, uno::Any( nColor ));
+                    rContext->Insert(ePropertyId, uno::Any(nColor));
             }
             // RTF import uses the actual color value
             else if( IsRTFImport() )
             {
-                rContext->Insert(PROP_CHAR_HIGHLIGHT, uno::Any( nIntValue ));
+                rContext->Insert(ePropertyId, uno::Any(nIntValue));
             }
         }
         break;
@@ -1986,6 +1988,10 @@ void DomainMapper::sprmWithProps( Sprm& rSprm, const PropertyMapPtr& rContext )
                 pProperties->resolve(*pCellColorHandler);
                 rContext->InsertProps(pCellColorHandler->getProperties().get());
                 m_pImpl->GetTopContext()->Insert(PROP_CHAR_SHADING_MARKER, uno::Any(true), true, CHAR_GRAB_BAG );
+
+                // EditEng doesn't have a corresponding property for Shading Value, so eliminate it.
+                if (m_pImpl->IsInComments())
+                    rContext->Erase(PROP_CHAR_SHADING_VALUE);
             }
             break;
         }
@@ -3318,7 +3324,7 @@ void DomainMapper::lcl_startParagraphGroup()
 
     if (m_pImpl->GetTopContext())
     {
-        if (!m_pImpl->IsInShape())
+        if (!m_pImpl->IsInShape() && !m_pImpl->IsInComments())
         {
             const OUString& sDefaultParaStyle = m_pImpl->GetDefaultParaStyleName();
             m_pImpl->GetTopContext()->Insert( PROP_PARA_STYLE_NAME, uno::Any( sDefaultParaStyle ) );
@@ -3892,13 +3898,23 @@ void DomainMapper::lcl_utext(const sal_uInt8 * data_, size_t len)
 
             // If the paragraph contains only the section properties and it has
             // no runs, we should not create a paragraph for it in Writer, unless that would remove the whole section.
-            SectionPropertyMap* pSectionContext = m_pImpl->GetSectionContext();
+            // Also do not remove here column breaks: they are treated in a different way and place.
+            bool bIsColumnBreak = false;
+            if (pContext->isSet(PROP_BREAK_TYPE))
+            {
+                const uno::Any aBreakType = pContext->getProperty(PROP_BREAK_TYPE)->second;
+                bIsColumnBreak =
+                    aBreakType == style::BreakType_COLUMN_BEFORE ||
+                    aBreakType == style::BreakType_COLUMN_AFTER ||
+                    aBreakType == style::BreakType_COLUMN_BOTH;
+            }
+
             bool bRemove = (!m_pImpl->GetParaChanged() && m_pImpl->GetRemoveThisPara()) ||
                            (!m_pImpl->GetParaChanged() && m_pImpl->GetParaSectpr()
                             && !bSingleParagraphAfterRedline
+                            && !bIsColumnBreak
                             && !m_pImpl->GetParaHadField()
                             && (!m_pImpl->GetIsDummyParaAddedForTableInSectionPage())
-                            && !( pSectionContext && pSectionContext->GetBreakType() != -1 && pContext && pContext->isSet(PROP_BREAK_TYPE) )
                             && !m_pImpl->GetIsPreviousParagraphFramed()
                             && !m_pImpl->HasTopAnchoredObjects()
                             && !m_pImpl->IsParaWithInlineObject());

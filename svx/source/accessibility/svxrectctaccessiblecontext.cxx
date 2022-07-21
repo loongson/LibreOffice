@@ -20,10 +20,10 @@
 #include <svxrectctaccessiblecontext.hxx>
 #include <com/sun/star/accessibility/AccessibleRole.hpp>
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
-#include <unotools/accessiblestatesethelper.hxx>
 #include <com/sun/star/accessibility/AccessibleStateType.hpp>
 #include <com/sun/star/lang/IndexOutOfBoundsException.hpp>
 #include <toolkit/helper/convert.hxx>
+#include <utility>
 #include <vcl/svapp.hxx>
 #include <osl/mutex.hxx>
 #include <tools/debug.hxx>
@@ -208,28 +208,28 @@ Reference< XAccessibleRelationSet > SAL_CALL SvxRectCtlAccessibleContext::getAcc
     return uno::Reference<css::accessibility::XAccessibleRelationSet>();
 }
 
-Reference< XAccessibleStateSet > SAL_CALL SvxRectCtlAccessibleContext::getAccessibleStateSet()
+sal_Int64 SAL_CALL SvxRectCtlAccessibleContext::getAccessibleStateSet()
 {
     ::osl::MutexGuard                       aGuard( m_aMutex );
-    rtl::Reference<utl::AccessibleStateSetHelper> pStateSetHelper = new utl::AccessibleStateSetHelper;
+    sal_Int64 nStateSet = 0;
 
     if (mpRepr)
     {
-        pStateSetHelper->AddState( AccessibleStateType::ENABLED );
-        pStateSetHelper->AddState( AccessibleStateType::FOCUSABLE );
+        nStateSet |= AccessibleStateType::ENABLED;
+        nStateSet |= AccessibleStateType::FOCUSABLE;
         if( mpRepr->HasFocus() )
-            pStateSetHelper->AddState( AccessibleStateType::FOCUSED );
-        pStateSetHelper->AddState( AccessibleStateType::OPAQUE );
+            nStateSet |= AccessibleStateType::FOCUSED;
+        nStateSet |= AccessibleStateType::OPAQUE;
 
-        pStateSetHelper->AddState( AccessibleStateType::SHOWING );
+        nStateSet |= AccessibleStateType::SHOWING;
 
         if( mpRepr->IsVisible() )
-            pStateSetHelper->AddState( AccessibleStateType::VISIBLE );
+            nStateSet |= AccessibleStateType::VISIBLE;
     }
     else
-        pStateSetHelper->AddState( AccessibleStateType::DEFUNC );
+        nStateSet |= AccessibleStateType::DEFUNC;
 
-    return pStateSetHelper;
+    return nStateSet;
 }
 
 void SAL_CALL SvxRectCtlAccessibleContext::grabFocus()
@@ -401,12 +401,12 @@ awt::Rectangle SvxRectCtlAccessibleContext::implGetBounds()
 
 SvxRectCtlChildAccessibleContext::SvxRectCtlChildAccessibleContext(
     const Reference<XAccessible>&   rxParent,
-    const OUString&              rName,
-    const OUString&              rDescription,
+    OUString               aName,
+    OUString               aDescription,
     const tools::Rectangle& rBoundingBox,
     tools::Long nIndexInParent )
-    : msDescription( rDescription )
-    , msName( rName )
+    : msDescription(std::move( aDescription ))
+    , msName(std::move( aName ))
     , mxParent(rxParent)
     , maBoundingBox( rBoundingBox )
     , mnIndexInParent( nIndexInParent )
@@ -496,29 +496,29 @@ Reference<XAccessibleRelationSet> SAL_CALL SvxRectCtlChildAccessibleContext::get
     return pRelationSetHelper;
 }
 
-Reference< XAccessibleStateSet > SAL_CALL SvxRectCtlChildAccessibleContext::getAccessibleStateSet()
+sal_Int64 SAL_CALL SvxRectCtlChildAccessibleContext::getAccessibleStateSet()
 {
     ::osl::MutexGuard                       aGuard( m_aMutex );
-    rtl::Reference<utl::AccessibleStateSetHelper>  pStateSetHelper = new utl::AccessibleStateSetHelper;
+    sal_Int64 nStateSet = 0;
 
     if (!rBHelper.bDisposed)
     {
         if( mbIsChecked )
         {
-            pStateSetHelper->AddState( AccessibleStateType::CHECKED );
+            nStateSet |= AccessibleStateType::CHECKED;
         }
 
-        pStateSetHelper->AddState( AccessibleStateType::ENABLED );
-        pStateSetHelper->AddState( AccessibleStateType::SENSITIVE );
-        pStateSetHelper->AddState( AccessibleStateType::OPAQUE );
-        pStateSetHelper->AddState( AccessibleStateType::SELECTABLE );
-        pStateSetHelper->AddState( AccessibleStateType::SHOWING );
-        pStateSetHelper->AddState( AccessibleStateType::VISIBLE );
+        nStateSet |= AccessibleStateType::ENABLED;
+        nStateSet |= AccessibleStateType::SENSITIVE;
+        nStateSet |= AccessibleStateType::OPAQUE;
+        nStateSet |= AccessibleStateType::SELECTABLE;
+        nStateSet |= AccessibleStateType::SHOWING;
+        nStateSet |= AccessibleStateType::VISIBLE;
     }
     else
-        pStateSetHelper->AddState( AccessibleStateType::DEFUNC );
+        nStateSet |= AccessibleStateType::DEFUNC;
 
-    return pStateSetHelper;
+    return nStateSet;
 }
 
 // XAccessibleValue

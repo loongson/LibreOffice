@@ -21,6 +21,7 @@
 #include <svtools/tabbar.hxx>
 #include <tools/time.hxx>
 #include <tools/poly.hxx>
+#include <utility>
 #include <vcl/InterimItemWindow.hxx>
 #include <vcl/bitmapex.hxx>
 #include <vcl/svapp.hxx>
@@ -105,8 +106,8 @@ public:
         tools::Long nTextWidth = mrRenderContext.GetTextWidth(aText);
         tools::Long nTextHeight = mrRenderContext.GetTextHeight();
         Point aPos = aRect.TopLeft();
-        aPos.AdjustX((aRect.getWidth()  - nTextWidth) / 2 );
-        aPos.AdjustY((aRect.getHeight() - nTextHeight) / 2 );
+        aPos.AdjustX((aRect.getOpenWidth()  - nTextWidth) / 2 );
+        aPos.AdjustY((aRect.getOpenHeight() - nTextHeight) / 2 );
 
         if (mbEnabled)
             mrRenderContext.DrawText(aPos, aText);
@@ -157,7 +158,7 @@ public:
             BitmapEx aBitmap(BMP_TAB_LOCK);
             Point aPosition = maRect.TopLeft();
             aPosition.AdjustX(2);
-            aPosition.AdjustY((maRect.getHeight() - aBitmap.GetSizePixel().Height()) / 2);
+            aPosition.AdjustY((maRect.getOpenHeight() - aBitmap.GetSizePixel().Height()) / 2);
             mrRenderContext.DrawBitmapEx(aPosition, aBitmap);
         }
     }
@@ -213,10 +214,10 @@ struct ImplTabBarItem
     Color maTabBgColor;
     Color maTabTextColor;
 
-    ImplTabBarItem(sal_uInt16 nItemId, const OUString& rText, TabBarPageBits nPageBits)
+    ImplTabBarItem(sal_uInt16 nItemId, OUString aText, TabBarPageBits nPageBits)
         : mnId(nItemId)
         , mnBits(nPageBits)
-        , maText(rText)
+        , maText(std::move(aText))
         , mnWidth(0)
         , mbShort(false)
         , mbSelect(false)

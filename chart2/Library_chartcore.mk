@@ -97,6 +97,7 @@ $(eval $(call gb_Library_add_exception_objects,chartcore,\
     chart2/source/view/main/ChartView \
     chart2/source/view/main/Clipping \
     chart2/source/view/main/DataPointSymbolSupplier \
+    chart2/source/view/main/DataTableView \
     chart2/source/view/main/DrawModelWrapper \
     chart2/source/view/main/ExplicitValueProvider \
     chart2/source/view/main/LabelPositionHelper \
@@ -129,6 +130,7 @@ $(eval $(call gb_Library_add_exception_objects,chartcore,\
     chart2/source/model/main/DataPointProperties \
     chart2/source/model/main/DataSeries \
     chart2/source/model/main/DataSeriesProperties \
+    chart2/source/model/main/DataTable \
     chart2/source/model/main/Diagram \
     chart2/source/model/main/FormattedString \
     chart2/source/model/main/GridProperties \

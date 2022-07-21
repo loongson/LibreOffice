@@ -46,6 +46,7 @@
 #include <tools/urlobj.hxx>
 #include <implimagetree.hxx>
 
+#include <utility>
 #include <vcl/bitmapex.hxx>
 #include <vcl/dibtools.hxx>
 #include <vcl/settings.hxx>
@@ -54,7 +55,7 @@
 #include <IconThemeScanner.hxx>
 #include <vcl/filter/PngImageReader.hxx>
 #include <vcl/outdev.hxx>
-#include <vcl/pngwrite.hxx>
+#include <vcl/filter/PngImageWriter.hxx>
 #include <o3tl/string_view.hxx>
 #include <bitmap/BitmapLightenFilter.hxx>
 
@@ -380,11 +381,11 @@ bool loadDiskCachedVersion(std::u16string_view sVariant, ImageRequestParameters&
 void cacheBitmapToDisk(std::u16string_view sVariant, ImageRequestParameters const & rParameters)
 {
     OUString sUrl(createIconCacheUrl(sVariant, rParameters));
-    vcl::PNGWriter aWriter(rParameters.mrBitmap);
     try
     {
         SvFileStream aStream(sUrl, StreamMode::WRITE);
-        aWriter.Write(aStream);
+        vcl::PngImageWriter aWriter(aStream);
+        aWriter.write(rParameters.mrBitmap);
         aStream.Close();
     }
     catch (...)
@@ -647,8 +648,8 @@ class FolderFileAccess : public ::cppu::WeakImplHelper<css::container::XNameAcce
 public:
     uno::Reference< uno::XComponentContext > mxContext;
     OUString maURL;
-    FolderFileAccess(uno::Reference< uno::XComponentContext > const & context, OUString const & url)
-        : mxContext(context), maURL(url) {}
+    FolderFileAccess(uno::Reference< uno::XComponentContext > context, OUString url)
+        : mxContext(std::move(context)), maURL(std::move(url)) {}
     // XElementAccess
     virtual css::uno::Type SAL_CALL getElementType() override { return cppu::UnoType<io::XInputStream>::get(); }
     virtual sal_Bool SAL_CALL hasElements() override { return true; }

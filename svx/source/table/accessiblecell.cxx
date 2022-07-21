@@ -30,10 +30,10 @@
 #include <com/sun/star/accessibility/AccessibleEventId.hpp>
 
 #include <editeng/unoedsrc.hxx>
+#include <utility>
 #include <vcl/svapp.hxx>
 #include <vcl/window.hxx>
 
-#include <unotools/accessiblestatesethelper.hxx>
 #include <comphelper/string.hxx>
 #include <comphelper/sequence.hxx>
 #include <svx/IAccessibleViewForwarder.hxx>
@@ -50,11 +50,11 @@ using namespace ::com::sun::star::container;
 
 namespace accessibility {
 
-AccessibleCell::AccessibleCell( const css::uno::Reference< css::accessibility::XAccessible>& rxParent, const sdr::table::CellRef& rCell, sal_Int32 nIndex, const AccessibleShapeTreeInfo& rShapeTreeInfo )
+AccessibleCell::AccessibleCell( const css::uno::Reference< css::accessibility::XAccessible>& rxParent, sdr::table::CellRef xCell, sal_Int32 nIndex, const AccessibleShapeTreeInfo& rShapeTreeInfo )
 : AccessibleCellBase( rxParent, AccessibleRole::TABLE_CELL )
 , maShapeTreeInfo( rShapeTreeInfo )
 , mnIndexInParent( nIndex )
-, mxCell( rCell )
+, mxCell(std::move( xCell ))
 {
     //Init the pAccTable var
     pAccTable = dynamic_cast <AccessibleTableShape *> (rxParent.get());
@@ -87,7 +87,7 @@ void AccessibleCell::Init()
 }
 
 
-bool AccessibleCell::SetState (sal_Int16 aState)
+bool AccessibleCell::SetState (sal_Int64 aState)
 {
     bool bStateHasChanged = false;
 
@@ -106,7 +106,7 @@ bool AccessibleCell::SetState (sal_Int16 aState)
 }
 
 
-bool AccessibleCell::ResetState (sal_Int16 aState)
+bool AccessibleCell::ResetState (sal_Int64 aState)
 {
     bool bStateHasChanged = false;
 
@@ -178,65 +178,54 @@ Reference<XAccessible> SAL_CALL AccessibleCell::getAccessibleChild (sal_Int32 nI
         SHOWING
         VISIBLE
 */
-Reference<XAccessibleStateSet> SAL_CALL AccessibleCell::getAccessibleStateSet()
+sal_Int64 SAL_CALL AccessibleCell::getAccessibleStateSet()
 {
     SolarMutexGuard aSolarGuard;
     ::osl::MutexGuard aGuard (m_aMutex);
-    Reference<XAccessibleStateSet> xStateSet;
+    sal_Int64 nStateSet = 0;
 
     if (rBHelper.bDisposed || mpText == nullptr)
     {
         // Return a minimal state set that only contains the DEFUNC state.
-        xStateSet = AccessibleContextBase::getAccessibleStateSet ();
+        nStateSet = AccessibleContextBase::getAccessibleStateSet ();
     }
     else
     {
-        if(mxStateSet)
+        // Merge current FOCUSED state from edit engine.
+        if (mpText != nullptr)
         {
-            // Merge current FOCUSED state from edit engine.
-            if (mpText != nullptr)
-            {
-                if (mpText->HaveFocus())
-                    mxStateSet->AddState (AccessibleStateType::FOCUSED);
-                else
-                    mxStateSet->RemoveState (AccessibleStateType::FOCUSED);
-            }
-            // Set the invisible state for merged cell
-            if (mxCell.is() && mxCell->isMerged())
-                mxStateSet->RemoveState(AccessibleStateType::VISIBLE);
+            if (mpText->HaveFocus())
+                mnStateSet |= AccessibleStateType::FOCUSED;
             else
-                mxStateSet->AddState(AccessibleStateType::VISIBLE);
+                mnStateSet &= ~AccessibleStateType::FOCUSED;
+        }
+        // Set the invisible state for merged cell
+        if (mxCell.is() && mxCell->isMerged())
+            mnStateSet &= ~AccessibleStateType::VISIBLE;
+        else
+            mnStateSet |= AccessibleStateType::VISIBLE;
 
 
-            //Just when the parent table is not read-only,set states EDITABLE,RESIZABLE,MOVEABLE
-            css::uno::Reference<XAccessible> xTempAcc = getAccessibleParent();
-            if( xTempAcc.is() )
+        //Just when the parent table is not read-only,set states EDITABLE,RESIZABLE,MOVEABLE
+        css::uno::Reference<XAccessible> xTempAcc = getAccessibleParent();
+        if( xTempAcc.is() )
+        {
+            css::uno::Reference<XAccessibleContext>
+                                    xTempAccContext = xTempAcc->getAccessibleContext();
+            if( xTempAccContext.is() )
             {
-                css::uno::Reference<XAccessibleContext>
-                                        xTempAccContext = xTempAcc->getAccessibleContext();
-                if( xTempAccContext.is() )
+                if (xTempAccContext->getAccessibleStateSet() & AccessibleStateType::EDITABLE)
                 {
-                    css::uno::Reference<XAccessibleStateSet> rState =
-                        xTempAccContext->getAccessibleStateSet();
-                    if( rState.is() )
-                    {
-                        const css::uno::Sequence<short> aStates = rState->getStates();
-                        if (std::find(aStates.begin(), aStates.end(), AccessibleStateType::EDITABLE) != aStates.end())
-                        {
-                            mxStateSet->AddState (AccessibleStateType::EDITABLE);
-                            mxStateSet->AddState (AccessibleStateType::RESIZABLE);
-                            mxStateSet->AddState (AccessibleStateType::MOVEABLE);
-                        }
-                    }
+                    mnStateSet |= AccessibleStateType::EDITABLE;
+                    mnStateSet |= AccessibleStateType::RESIZABLE;
+                    mnStateSet |= AccessibleStateType::MOVEABLE;
                 }
             }
-            // Create a copy of the state set that may be modified by the
-            // caller without affecting the current state set.
-            xStateSet.set(new ::utl::AccessibleStateSetHelper (*mxStateSet));
         }
+        nStateSet = mnStateSet;
     }
 
-    return xStateSet;
+    return nStateSet;
 }
 
 
@@ -319,7 +308,7 @@ css::awt::Rectangle SAL_CALL AccessibleCell::getBounds()
             awt::Size aParentSize (xParentComponent->getSize());
             ::tools::Rectangle aParentBBox (0,0, aParentSize.Width, aParentSize.Height);
             aBBox = aBBox.GetIntersection (aParentBBox);
-            aBoundingBox = awt::Rectangle ( aBBox.Left(), aBBox.Top(), aBBox.getWidth(), aBBox.getHeight());
+            aBoundingBox = awt::Rectangle ( aBBox.Left(), aBBox.Top(), aBBox.getOpenWidth(), aBBox.getOpenHeight());
         }
         else
         {
@@ -491,8 +480,7 @@ void AccessibleCell::disposing()
 
     // Make sure to send an event that this object loses the focus in the
     // case that it has the focus.
-    if (mxStateSet != nullptr)
-        mxStateSet->RemoveState(AccessibleStateType::FOCUSED);
+    mnStateSet &= ~AccessibleStateType::FOCUSED;
 
     if (mpText != nullptr)
     {

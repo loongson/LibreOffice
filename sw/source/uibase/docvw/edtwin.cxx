@@ -151,6 +151,7 @@
 #include <txtfrm.hxx>
 #include <strings.hrc>
 #include <textcontentcontrol.hxx>
+#include <contentcontrolbutton.hxx>
 
 using namespace sw::mark;
 using namespace ::com::sun::star;
@@ -1523,7 +1524,59 @@ void SwEditWin::KeyInput(const KeyEvent &rKEvt)
         return;
     }
 
+    if (SwTextContentControl* pTextContentControl = rSh.CursorInsideContentControl())
+    {
+        // Check if this combination of rKeyCode and pTextContentControl should open a popup.
+        const SwFormatContentControl& rFormatContentControl = pTextContentControl->GetContentControl();
+        std::shared_ptr<SwContentControl> pContentControl = rFormatContentControl.GetContentControl();
+        if (pContentControl->ShouldOpenPopup(rKeyCode))
+        {
+            SwShellCursor* pCursor = rSh.GetCursor_();
+            if (pCursor)
+            {
+                VclPtr<SwContentControlButton> pContentControlButton = pCursor->GetContentControlButton();
+                if (pContentControlButton)
+                {
+                    pContentControlButton->StartPopup();
+                    return;
+                }
+            }
+        }
+    }
+
     const SwFrameFormat* pFlyFormat = rSh.GetFlyFrameFormat();
+
+    if (pFlyFormat)
+    {
+        // See if the fly frame's anchor is in a content control. If so,
+        // try to interact with it.
+        const SwFormatAnchor& rFormatAnchor = pFlyFormat->GetAnchor();
+        const SwPosition* pAnchorPos = rFormatAnchor.GetContentAnchor();
+        if (pAnchorPos)
+        {
+            SwTextNode* pTextNode = pAnchorPos->nNode.GetNode().GetTextNode();
+            if (pTextNode)
+            {
+                SwTextAttr* pAttr = pTextNode->GetTextAttrAt(
+                    pAnchorPos->nContent.GetIndex(), RES_TXTATR_CONTENTCONTROL, SwTextNode::PARENT);
+                if (pAttr)
+                {
+                    SwTextContentControl* pTextContentControl
+                        = static_txtattr_cast<SwTextContentControl*>(pAttr);
+                    const SwFormatContentControl& rFormatContentControl
+                        = pTextContentControl->GetContentControl();
+                    std::shared_ptr<SwContentControl> pContentControl
+                        = rFormatContentControl.GetContentControl();
+                    if (pContentControl->IsInteractingCharacter(aCh))
+                    {
+                        rSh.GotoContentControl(rFormatContentControl);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
     if( pFlyFormat )
     {
         SvMacroItemId nEvent;
@@ -2414,6 +2467,29 @@ KEYINPUT_CHECKTABLE_INSDEL:
             aCh = '\t';
             [[fallthrough]];
         case SwKeyState::InsChar:
+            if (rSh.CursorInsideContentControl())
+            {
+                const SwPosition* pStart = rSh.GetCursor()->Start();
+                SwTextNode* pTextNode = pStart->nNode.GetNode().GetTextNode();
+                if (pTextNode)
+                {
+                    sal_Int32 nIndex = pStart->nContent.GetIndex();
+                    SwTextAttr* pAttr = pTextNode->GetTextAttrAt(nIndex, RES_TXTATR_CONTENTCONTROL, SwTextNode::PARENT);
+                    if (pAttr)
+                    {
+                        auto pTextContentControl = static_txtattr_cast<SwTextContentControl*>(pAttr);
+                        const SwFormatContentControl& rFormatContentControl = pTextContentControl->GetContentControl();
+                        std::shared_ptr<SwContentControl> pContentControl = rFormatContentControl.GetContentControl();
+                        if (pContentControl->IsInteractingCharacter(aCh))
+                        {
+                            rSh.GotoContentControl(rFormatContentControl);
+                            eKeyState = SwKeyState::End;
+                            break;
+                        }
+                    }
+                }
+            }
+
             if (rSh.GetChar(false)==CH_TXT_ATR_FORMELEMENT)
             {
                 ::sw::mark::ICheckboxFieldmark* pFieldmark =

@@ -24,6 +24,8 @@
 #include <AxisIndexDefines.hxx>
 #include <Axis.hxx>
 #include <AxisHelper.hxx>
+#include <Diagram.hxx>
+#include <DataTable.hxx>
 #include <ChartModel.hxx>
 
 namespace chart
@@ -66,11 +68,11 @@ uno::Sequence< sal_Int32 > VPolarCoordinateSystem::getCoordinateSystemResolution
 }
 
 void VPolarCoordinateSystem::createVAxisList(
-              const rtl::Reference<::chart::ChartModel> & xChartDoc
-            , const awt::Size& rFontReferenceSize
-            , const awt::Rectangle& rMaximumSpaceForLabels
-            , bool //bLimitSpaceForLabels
-            )
+            const rtl::Reference<::chart::ChartModel> & xChartDoc,
+            const awt::Size& rFontReferenceSize,
+            const awt::Rectangle& rMaximumSpaceForLabels,
+            bool /*bLimitSpaceForLabels*/,
+            std::vector<std::unique_ptr<VSeriesPlotter>>& /*rSeriesPlotterList*/)
 {
     // note: using xChartDoc itself as XNumberFormatsSupplier would cause
     // a leak from VPolarAxis due to cyclic reference
@@ -90,7 +92,9 @@ void VPolarCoordinateSystem::createVAxisList(
             rtl::Reference< Axis > xAxis = getAxisByDimension(nDimensionIndex,nAxisIndex);
             if(!xAxis.is() || !AxisHelper::shouldAxisBeDisplayed( xAxis, m_xCooSysModel ))
                 continue;
-            AxisProperties aAxisProperties(xAxis,getExplicitCategoriesProvider());
+
+            rtl::Reference<Diagram> xDiagram(xChartDoc->getFirstChartDiagram());
+            AxisProperties aAxisProperties(xAxis,getExplicitCategoriesProvider(), xDiagram->getDataTableRef());
             aAxisProperties.init();
             if(aAxisProperties.m_bDisplayLabels)
                 aAxisProperties.m_nNumberFormatKey = getNumberFormatKeyForAxis(xAxis, xChartDoc);

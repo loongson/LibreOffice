@@ -143,8 +143,9 @@ namespace {
 class ShapePositionProvider : public PropertyValueProvider
 {
 public:
+    static constexpr OUStringLiteral sPosition = u"Position";
     explicit ShapePositionProvider( SvxShape& _shape )
-        :PropertyValueProvider( _shape, "Position" )
+        :PropertyValueProvider( _shape, sPosition )
     {
     }
 
@@ -1157,7 +1158,7 @@ awt::Size SAL_CALL SvxShape::getSize()
     if(HasSdrObject())
     {
         tools::Rectangle aRect( svx_getLogicRectHack(GetSdrObject()) );
-        Size aObjSize( aRect.getWidth(), aRect.getHeight() );
+        Size aObjSize( aRect.getOpenWidth(), aRect.getOpenHeight() );
         ForceMetricTo100th_mm(aObjSize);
         return css::awt::Size( aObjSize.getWidth(), aObjSize.getHeight() );
     }

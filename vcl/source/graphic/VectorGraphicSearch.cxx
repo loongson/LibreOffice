@@ -8,6 +8,7 @@
  *
  */
 
+#include <utility>
 #include <vcl/VectorGraphicSearch.hxx>
 
 #include <vcl/filter/PDFiumLibrary.hxx>
@@ -191,9 +192,9 @@ public:
     ~Implementation() { mpSearchContext.reset(); }
 };
 
-VectorGraphicSearch::VectorGraphicSearch(Graphic const& rGraphic)
+VectorGraphicSearch::VectorGraphicSearch(Graphic aGraphic)
     : mpImplementation(std::make_unique<VectorGraphicSearch::Implementation>())
-    , maGraphic(rGraphic)
+    , maGraphic(std::move(aGraphic))
 {
 }
 
@@ -231,7 +232,8 @@ bool VectorGraphicSearch::searchPDF(std::shared_ptr<VectorGraphicData> const& rD
     }
 
     mpImplementation->mpPdfDocument = mpImplementation->mpPDFium->openDocument(
-        rData->getBinaryDataContainer().getData(), rData->getBinaryDataContainer().getSize());
+        rData->getBinaryDataContainer().getData(), rData->getBinaryDataContainer().getSize(),
+        OString());
 
     if (!mpImplementation->mpPdfDocument)
     {

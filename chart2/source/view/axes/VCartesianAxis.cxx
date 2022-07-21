@@ -35,6 +35,9 @@
 #include <tools/color.hxx>
 #include <svx/unoshape.hxx>
 #include <svx/unoshtxt.hxx>
+#include <VSeriesPlotter.hxx>
+#include <DataTableView.hxx>
+#include <ChartModel.hxx>
 
 #include <comphelper/scopeguard.hxx>
 
@@ -1666,11 +1669,35 @@ void VCartesianAxis::createLabels()
     if( !prepareShapeCreation() )
         return;
 
+    std::unique_ptr<TickFactory2D> apTickFactory2D(createTickFactory2D()); // throws on failure
+
+    if (m_pDataTableView && m_aAxisProperties.m_bDisplayDataTable)
+    {
+        m_pDataTableView->initializeShapes(m_xDataTableTarget);
+        basegfx::B2DVector aStart = apTickFactory2D->getXaxisStartPos();
+        basegfx::B2DVector aEnd = apTickFactory2D->getXaxisEndPos();
+
+        apTickFactory2D->updateScreenValues(m_aAllTickInfos);
+
+        sal_Int32 nDistance = -1;
+
+        std::unique_ptr<TickIter> apTickIter(createLabelTickIterator(0));
+        if (apTickIter)
+        {
+            nDistance = TickFactory2D::getTickScreenDistance(*apTickIter);
+            if (getTextLevelCount() > 1)
+                nDistance *= 2;
+        }
+
+        if (nDistance > 0)
+            m_pDataTableView->createShapes(aStart, aEnd, nDistance);
+        return;
+    }
+
     //create labels
     if (!m_aAxisProperties.m_bDisplayLabels)
         return;
 
-    std::unique_ptr<TickFactory2D> apTickFactory2D(createTickFactory2D()); // throws on failure
     TickFactory2D* pTickFactory2D = apTickFactory2D.get();
 
     //get the transformed screen values for all tickmarks in aAllTickInfos
@@ -1965,6 +1992,19 @@ void VCartesianAxis::createShapes()
 
     createLabels();
 }
+
+void VCartesianAxis::createDataTableView(std::vector<std::unique_ptr<VSeriesPlotter>>& rSeriesPlotterList,
+                                         Reference<util::XNumberFormatsSupplier> const& xNumberFormatsSupplier,
+                                         rtl::Reference<::chart::ChartModel> const& xChartDoc)
+{
+    if (m_aAxisProperties.m_bDisplayDataTable)
+    {
+        m_pDataTableView.reset(new DataTableView(xChartDoc, m_aAxisProperties.m_xDataTableModel));
+        m_pDataTableView->initializeValues(rSeriesPlotterList);
+        m_xNumberFormatsSupplier = xNumberFormatsSupplier;
+    }
+}
+
 
 } //namespace chart
 

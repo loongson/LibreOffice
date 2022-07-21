@@ -12,6 +12,7 @@
 
 #include <string_view>
 
+#include <osl/endian.h>
 #include <test/bootstrapfixture.hxx>
 #include <test/xmltesttools.hxx>
 #include <vcl/gdimtf.hxx>
@@ -19,7 +20,7 @@
 #include <vcl/hatch.hxx>
 #include <vcl/lineinfo.hxx>
 #include <vcl/virdev.hxx>
-#include <vcl/pngwrite.hxx>
+#include <vcl/filter/PngImageWriter.hxx>
 #include <tools/fract.hxx>
 #include <vcl/metaact.hxx>
 #include <vcl/filter/SvmReader.hxx>
@@ -284,13 +285,13 @@ void SvmTest::checkRendering(ScopedVclPtrInstance<VirtualDevice> const & pVirtua
 
         {
             SvFileStream aStream(aTempFile.GetURL() + ".source.png", StreamMode::WRITE | StreamMode::TRUNC);
-            vcl::PNGWriter aPNGWriter(aSourceBitmapEx);
-            aPNGWriter.Write(aStream);
+            vcl::PngImageWriter aPNGWriter(aStream);
+            aPNGWriter.write(aSourceBitmapEx);
         }
         {
             SvFileStream aStream(aTempFile.GetURL() + ".result.png", StreamMode::WRITE | StreamMode::TRUNC);
-            vcl::PNGWriter aPNGWriter(aResultBitmapEx);
-            aPNGWriter.Write(aStream);
+            vcl::PngImageWriter aPNGWriter(aStream);
+            aPNGWriter.write(aResultBitmapEx);
         }
     }
     CPPUNIT_ASSERT_EQUAL(aSourceBitmapEx.GetChecksum(), aResultBitmapEx.GetChecksum());
@@ -937,14 +938,26 @@ void SvmTest::checkBitmaps(const GDIMetaFile& rMetaFile)
     if (SkiaHelper::isVCLSkiaEnabled())
         return; // TODO SKIA using CRCs is broken (the idea of it)
 
-    assertXPathAttrs(pDoc, "/metafile/bmp[1]", {{"x", "1"}, {"y", "2"}, {"crc", "b8dee5da"}});
+    assertXPathAttrs(pDoc, "/metafile/bmp[1]", {{"x", "1"}, {"y", "2"}, {"crc",
+#if defined OSL_BIGENDIAN
+        "5e01ddcc"
+#else
+        "b8dee5da"
+#endif
+        }});
     assertXPathAttrs(pDoc, "/metafile/bmpscale[1]", {
         {"x", "1"}, {"y", "2"}, {"width", "3"}, {"height", "4"}, {"crc", "281fc589"}
     });
     assertXPathAttrs(pDoc, "/metafile/bmpscalepart[1]", {
         {"destx", "1"}, {"desty", "2"}, {"destwidth", "3"}, {"destheight", "4"},
         {"srcx", "2"},  {"srcy", "1"},  {"srcwidth", "4"},  {"srcheight", "3"},
-        {"crc", "5e01ddcc"}
+        {"crc",
+#if defined OSL_BIGENDIAN
+         "b8dee5da"
+#else
+         "5e01ddcc"
+#endif
+        }
     });
 }
 
@@ -995,6 +1008,16 @@ void SvmTest::checkBitmapExs(const GDIMetaFile& rMetaFile)
     std::vector<OUString> aExpectedCRC;
     aExpectedCRC.insert(aExpectedCRC.end(),
     {
+#if defined OSL_BIGENDIAN
+        "08feb5d3",
+        "281fc589",
+        "b8dee5da",
+        "4df0e464",
+        "186ff868",
+        "33b4a07c", // 4-bit color bitmap - same as 8-bit color bitmap
+        "33b4a07c",
+        "742c3e35",
+#else
         "d8377d4f",
         "281fc589",
         "5e01ddcc",
@@ -1003,6 +1026,7 @@ void SvmTest::checkBitmapExs(const GDIMetaFile& rMetaFile)
         "3c80d829", // 4-bit color bitmap - same as 8-bit color bitmap
         "3c80d829",
         "71efc447",
+#endif
     });
 
     assertXPathAttrs(pDoc, "/metafile/bmpex[1]", {
@@ -2220,15 +2244,9 @@ void SvmTest::checkComment(const GDIMetaFile& rMetafile)
         {"datasize", "48"}
     });
 
-#ifdef OSL_LITENDIAN
     assertXPathAttrs(pDoc, "/metafile/comment[2]", {
         {"data", "540068006500730065002000610072006500200073006f006d0065002000740065007300740020006400610074006100"}
     });
-#else
-    assertXPathAttrs(pDoc, "/metafile/comment[2]", {
-        {"data", "00540068006500730065002000610072006500200073006f006d00650020007400650073007400200064006100740061"}
-    });
-#endif
 
     assertXPathAttrs(pDoc, "/metafile/comment[2]", {
         {"value", "4"}
@@ -2245,11 +2263,13 @@ void SvmTest::testComment()
 
     aGDIMetaFile.AddAction(new MetaCommentAction("Test comment"));
 
-    OUString aString = "These are some test data";
+    using namespace std::literals::string_view_literals;
+    static constexpr auto aString
+        = "T\0h\0e\0s\0e\0 \0a\0r\0e\0 \0s\0o\0m\0e\0 \0t\0e\0s\0t\0 \0d\0a\0t\0a\0"sv;
     aGDIMetaFile.AddAction(new MetaCommentAction("This is a test comment", \
                                                     4, \
-                                                    reinterpret_cast<const sal_uInt8*>(aString.getStr()), \
-                                                    2*aString.getLength() ));
+                                                    reinterpret_cast<const sal_uInt8*>(aString.data()), \
+                                                    aString.length() ));
 
     checkComment(writeAndReadStream(aGDIMetaFile));
     checkComment(readFile(u"comment.svm"));

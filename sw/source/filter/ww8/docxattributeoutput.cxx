@@ -1494,7 +1494,9 @@ void DocxAttributeOutput::EndParagraphProperties(const SfxItemSet& rParagraphMar
 
     // RDF metadata for this text node.
     SwTextNode* pTextNode = m_rExport.m_pCurPam->GetNode().GetTextNode();
-    std::map<OUString, OUString> aStatements = SwRDFHelper::getTextNodeStatements("urn:bails", *pTextNode);
+    std::map<OUString, OUString> aStatements;
+    if (pTextNode)
+        aStatements = SwRDFHelper::getTextNodeStatements("urn:bails", *pTextNode);
     if (!aStatements.empty())
     {
         m_pSerializer->startElementNS(XML_w, XML_smartTag,
@@ -2973,6 +2975,8 @@ void DocxAttributeOutput::InitCollectedRunProperties()
         FSNS( XML_w, XML_rPrChange ),
         FSNS( XML_w, XML_del ),
         FSNS( XML_w, XML_ins ),
+        FSNS( XML_w, XML_moveFrom ),
+        FSNS( XML_w, XML_moveTo ),
         FSNS( XML_w14, XML_glow ),
         FSNS( XML_w14, XML_shadow ),
         FSNS( XML_w14, XML_reflection ),
@@ -9863,7 +9867,7 @@ void DocxAttributeOutput::FormatFillGradient( const XFillGradientItem& rFillGrad
         SwFrameFormat & rFormat(
                 const_cast<SwFrameFormat&>(m_rExport.m_pParentFrame->GetFrameFormat()));
         uno::Reference<beans::XPropertySet> const xPropertySet(
-            SwXTextFrame::CreateXTextFrame(*rFormat.GetDoc(), &rFormat),
+            static_cast<cppu::OWeakObject*>(SwXTextFrame::CreateXTextFrame(*rFormat.GetDoc(), &rFormat).get()),
             uno::UNO_QUERY);
         m_rDrawingML.SetFS(m_pSerializer);
         m_rDrawingML.WriteGradientFill(xPropertySet);

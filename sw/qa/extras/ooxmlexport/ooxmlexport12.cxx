@@ -689,6 +689,8 @@ DECLARE_OOXMLEXPORT_TEST(testTdf112202, "090716_Studentische_Arbeit_VWS.docx")
     assertXPath(pXmlDoc, "/root/page[3]/header/tab", 1);
     assertXPath(pXmlDoc, "/root/page[3]/header/tab/row/cell/txt/Text", 0);
     assertXPath(pXmlDoc, "/root/page[3]/header//anchored", 0);
+    // tdf#149313: ensure 3rd page does not have extra empty paragraph at top
+    assertXPathContent(pXmlDoc, "/root/page[3]/body//txt", "AUFGABENSTELLUNG");
 
     // page 4 header: 1 table, 1 paragraph, with text
     assertXPath(pXmlDoc, "/root/page[4]/header/txt", 1);
@@ -1374,6 +1376,17 @@ CPPUNIT_TEST_FIXTURE(Test, testTdf149708)
     assertXPath(pXmlDoc, "/w:document/w:body/w:p[2]/w:pPr/w:rPr/w:ins");
 }
 
+CPPUNIT_TEST_FIXTURE(Test, testTdf149707)
+{
+    loadAndSave("tdf149711.docx");
+    xmlDocUniquePtr pXmlDoc = parseExport("word/document.xml");
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[2]/w:moveFrom");
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[4]/w:moveTo");
+    // These were missing
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[2]/w:pPr/w:rPr/w:moveFrom");
+    assertXPath(pXmlDoc, "/w:document/w:body/w:p[4]/w:pPr/w:rPr/w:moveTo");
+}
+
 CPPUNIT_TEST_FIXTURE(Test, testTdf70234)
 {
     loadAndSave("tdf70234.docx");
@@ -1724,7 +1737,8 @@ CPPUNIT_TEST_FIXTURE(Test, testTdf88496)
     // Switch off repeating header, there is no place for it.
     // Now there are only 3 pages with complete table content
     // instead of a 51-page long table only with header.
-    CPPUNIT_ASSERT_EQUAL(2, getPages());
+    CPPUNIT_ASSERT_EQUAL(3, getPages());
+    // (this appears to have the correct result now?)
     // FIXME: this actually has 3 pages but SwWrtShell::SttPg() puts the cursor
     // into the single SwTextFrame in the follow-flow-row at the top of the
     // table but that SwTextFrame 1105 should not exist and the cursor ends up

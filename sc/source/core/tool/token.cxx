@@ -365,9 +365,9 @@ FormulaToken* ScRawToken::CreateToken(ScSheetLimits& rLimits) const
         {
             svl::SharedString aSS(sharedstring.mpData, sharedstring.mpDataIgnoreCase);
             if (eOp == ocPush)
-                return new FormulaStringToken(aSS);
+                return new FormulaStringToken(std::move(aSS));
             else
-                return new FormulaStringOpToken(eOp, aSS);
+                return new FormulaStringOpToken(eOp, std::move(aSS));
         }
         case svSingleRef :
             if (eOp == ocPush)
@@ -5347,9 +5347,9 @@ sal_Int32 ScTokenArray::GetWeight() const
                 const auto pComplexRef = (*pRPN[i]).GetDoubleRef();
 
                 // Number of cells referenced divided by 10.
-                const double nNumCellsTerm =
-                    (1 + (pComplexRef->Ref2.Row() - pComplexRef->Ref1.Row())) *
-                    (1 + (pComplexRef->Ref2.Col() - pComplexRef->Ref1.Col())) / 10.;
+                const double nRows = 1 + (pComplexRef->Ref2.Row() - pComplexRef->Ref1.Row());
+                const double nCols = 1 + (pComplexRef->Ref2.Col() - pComplexRef->Ref1.Col());
+                const double nNumCellsTerm = nRows * nCols / 10.0;
 
                 if (nNumCellsTerm + nResult < SAL_MAX_INT32)
                     nResult += nNumCellsTerm;
